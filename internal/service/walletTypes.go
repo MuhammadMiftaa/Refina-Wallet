@@ -18,13 +18,13 @@ type WalletTypesService interface {
 }
 
 type walletTypesService struct {
-	txManage        repository.TxManager
+	txManager       repository.TxManager
 	walletTypesRepo repository.WalletTypesRepository
 }
 
 func NewWalletTypesService(txManager repository.TxManager, walletTypesRepo repository.WalletTypesRepository) WalletTypesService {
 	return &walletTypesService{
-		txManage:        txManager,
+		txManager:       txManager,
 		walletTypesRepo: walletTypesRepo,
 	}
 }
