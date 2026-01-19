@@ -1,4 +1,5 @@
 -- +goose Up
+-- +goose StatementBegin
 CREATE TABLE wallet_types (
     id uuid DEFAULT uuid_generate_v4() NOT NULL,
     created_at timestamp with time zone,
