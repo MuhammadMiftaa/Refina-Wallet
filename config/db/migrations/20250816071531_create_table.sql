@@ -1,7 +1,7 @@
 -- +goose Up
 -- +goose StatementBegin
 CREATE TABLE wallet_types (
-    id uuid DEFAULT uuid_generate_v4() NOT NULL,
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4() NOT NULL,
     created_at timestamp with time zone,
     updated_at timestamp with time zone,
     deleted_at timestamp with time zone,
@@ -10,7 +10,7 @@ CREATE TABLE wallet_types (
 );
 
 CREATE TABLE wallets (
-    id uuid DEFAULT uuid_generate_v4() NOT NULL,
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4() NOT NULL,
     created_at timestamp with time zone,
     updated_at timestamp with time zone,
     deleted_at timestamp with time zone,

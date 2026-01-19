@@ -2,7 +2,7 @@
 -- +goose StatementBegin
 CREATE OR REPLACE VIEW view_user_wallets_group_by_type AS
 SELECT 
-	users.id AS user_id,
+	wallets.user_id,
 	wallet_types.type AS type,
 	JSON_AGG(
 		JSON_BUILD_OBJECT(
@@ -13,10 +13,9 @@ SELECT
 		)
 	) AS wallets 
 FROM wallets
-JOIN users ON users.id = wallets.user_id AND users.deleted_at IS NULL
 JOIN wallet_types ON wallet_types.id = wallets.wallet_type_id AND wallet_types.deleted_at IS NULL
 WHERE wallets.deleted_at IS NULL
-GROUP BY users.id, wallet_types.type;
+GROUP BY wallets.user_id, wallet_types.type;
 -- +goose StatementEnd
 
 -- +goose Down
