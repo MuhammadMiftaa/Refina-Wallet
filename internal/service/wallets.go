@@ -14,7 +14,7 @@ import (
 type WalletsService interface {
 	GetAllWallets(ctx context.Context) ([]dto.WalletsResponse, error)
 	GetWalletByID(ctx context.Context, id string) (dto.WalletsResponse, error)
-	GetWalletsByUserID(ctx context.Context, token string) ([]view.ViewUserWallets, error)
+	GetWalletsByUserID(ctx context.Context, token string) ([]dto.WalletsResponse, error)
 	GetWalletsByUserIDGroupByType(ctx context.Context, token string) ([]view.ViewUserWalletsGroupByType, error)
 	CreateWallet(ctx context.Context, token string, wallet dto.WalletsRequest) (dto.WalletsResponse, error)
 	UpdateWallet(ctx context.Context, id string, wallet dto.WalletsRequest) (dto.WalletsResponse, error)
@@ -59,7 +59,7 @@ func (wallet_serv *walletsService) GetWalletByID(ctx context.Context, id string)
 	return walletResponse, nil
 }
 
-func (wallet_serv *walletsService) GetWalletsByUserID(ctx context.Context, token string) ([]view.ViewUserWallets, error) {
+func (wallet_serv *walletsService) GetWalletsByUserID(ctx context.Context, token string) ([]dto.WalletsResponse, error) {
 	userData, err := utils.VerifyToken(token[7:])
 	if err != nil {
 		return nil, errors.New("invalid token")
@@ -70,7 +70,13 @@ func (wallet_serv *walletsService) GetWalletsByUserID(ctx context.Context, token
 		return nil, errors.New("failed to get wallets")
 	}
 
-	return wallets, err
+	var walletsResponse []dto.WalletsResponse
+	for _, wallet := range wallets {
+		walletResponse := utils.ConvertToResponseType(wallet).(dto.WalletsResponse)
+		walletsResponse = append(walletsResponse, walletResponse)
+	}
+
+	return walletsResponse, nil
 }
 
 func (wallet_serv *walletsService) GetWalletsByUserIDGroupByType(ctx context.Context, token string) ([]view.ViewUserWalletsGroupByType, error) {

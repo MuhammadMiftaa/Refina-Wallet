@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func WalletRoutes(version *gin.RouterGroup, db *gorm.DB) {
+func WalletRoutes(version *gin.Engine, db *gorm.DB) {
 	txManager := repository.NewTxManager(db)
 	Wallet_repo := repository.NewWalletRepository(db)
 	Wallet_serv := service.NewWalletService(txManager, Wallet_repo)

@@ -15,7 +15,7 @@ import (
 type WalletsRepository interface {
 	GetAllWallets(ctx context.Context, tx Transaction) ([]model.Wallets, error)
 	GetWalletByID(ctx context.Context, tx Transaction, id string) (model.Wallets, error)
-	GetWalletsByUserID(ctx context.Context, tx Transaction, id string) ([]view.ViewUserWallets, error)
+	GetWalletsByUserID(ctx context.Context, tx Transaction, id string) ([]model.Wallets, error)
 	GetWalletsByUserIDGroupByType(ctx context.Context, tx Transaction, id string) ([]view.ViewUserWalletsGroupByType, error)
 	CreateWallet(ctx context.Context, tx Transaction, wallet model.Wallets) (model.Wallets, error)
 	UpdateWallet(ctx context.Context, tx Transaction, wallet model.Wallets) (model.Wallets, error)
@@ -69,14 +69,14 @@ func (wallet_repo *walletsRepository) GetWalletByID(ctx context.Context, tx Tran
 	return wallet, nil
 }
 
-func (wallet_repo *walletsRepository) GetWalletsByUserID(ctx context.Context, tx Transaction, id string) ([]view.ViewUserWallets, error) {
+func (wallet_repo *walletsRepository) GetWalletsByUserID(ctx context.Context, tx Transaction, id string) ([]model.Wallets, error) {
 	db, err := wallet_repo.getDB(ctx, tx)
 	if err != nil {
 		return nil, err
 	}
 
-	var userWallets []view.ViewUserWallets
-	err = db.Table("view_user_wallets").Where("user_id = ?", id).Find(&userWallets).Error
+	var userWallets []model.Wallets
+	err = db.Where("user_id = ?", id).Find(&userWallets).Error
 	if err != nil {
 		return nil, errors.New("user wallets not found")
 	}

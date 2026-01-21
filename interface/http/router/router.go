@@ -19,10 +19,8 @@ func SetupRouter() *gin.Engine {
 		})
 	})
 
-	v1 := router.Group("/v1")
-
-	routes.WalletRoutes(v1, db.DB)
-	routes.WalletTypesRoutes(v1, db.DB)
+	routes.WalletRoutes(router, db.DB)
+	routes.WalletTypesRoutes(router, db.DB)
 
 	return router
 }
