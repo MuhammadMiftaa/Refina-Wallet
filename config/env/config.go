@@ -10,7 +10,8 @@ import (
 type (
 	Server struct {
 		Mode         string `env:"MODE"`
-		Port         string `env:"PORT"`
+		HTTPPort     string `env:"HTTP_PORT"`
+		GRPCPort     string `env:"GRPC_PORT"`
 		JWTSecretKey string `env:"JWT_SECRET_KEY"`
 	}
 
@@ -50,8 +51,11 @@ func LoadNative() ([]string, error) {
 	if Cfg.Server.Mode, ok = os.LookupEnv("MODE"); !ok {
 		missing = append(missing, "MODE env is not set")
 	}
-	if Cfg.Server.Port, ok = os.LookupEnv("PORT"); !ok {
-		missing = append(missing, "PORT env is not set")
+	if Cfg.Server.HTTPPort, ok = os.LookupEnv("HTTP_PORT"); !ok {
+		missing = append(missing, "HTTP PORT env is not set")
+	}
+	if Cfg.Server.GRPCPort, ok = os.LookupEnv("GRPC_PORT"); !ok {
+		missing = append(missing, "GRPC PORT env is not set")
 	}
 	if Cfg.Server.JWTSecretKey, ok = os.LookupEnv("JWT_SECRET_KEY"); !ok {
 		missing = append(missing, "JWT_SECRET_KEY env is not set")
@@ -106,8 +110,11 @@ func LoadByViper() ([]string, error) {
 	if Cfg.Server.Mode = config.GetString("MODE"); Cfg.Server.Mode == "" {
 		missing = append(missing, "MODE env is not set")
 	}
-	if Cfg.Server.Port = config.GetString("PORT"); Cfg.Server.Port == "" {
-		missing = append(missing, "PORT env is not set")
+	if Cfg.Server.HTTPPort = config.GetString("HTTP_PORT"); Cfg.Server.HTTPPort == "" {
+		missing = append(missing, "HTTP PORT env is not set")
+	}
+	if Cfg.Server.GRPCPort = config.GetString("GRPC_PORT"); Cfg.Server.GRPCPort == "" {
+		missing = append(missing, "GRPC PORT env is not set")
 	}
 	if Cfg.Server.JWTSecretKey = config.GetString("JWT_SECRET_KEY"); Cfg.Server.JWTSecretKey == "" {
 		missing = append(missing, "JWT_SECRET_KEY env is not set")

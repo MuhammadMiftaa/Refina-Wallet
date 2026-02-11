@@ -1,0 +1,28 @@
+package server
+
+import (
+	"net"
+
+	"refina-wallet/config/db"
+	"refina-wallet/config/env"
+	"refina-wallet/internal/repository"
+
+	wpb "github.com/MuhammadMiftaa/Golang-Refina-Protobuf/wallet"
+	"google.golang.org/grpc"
+)
+
+func SetupGRPCServer() (*grpc.Server, *net.Listener) {
+	lis, err := net.Listen("tcp", env.Cfg.Server.GRPCPort)
+	if err != nil {
+		return nil, nil
+	}
+
+	s := grpc.NewServer()
+
+	walletServer := &walletServer{
+		walletsRepository: repository.NewWalletRepository(db.DB),
+	}
+	wpb.RegisterWalletServiceServer(s, walletServer)
+
+	return s, &lis
+}

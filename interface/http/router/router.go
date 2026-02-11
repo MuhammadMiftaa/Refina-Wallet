@@ -1,14 +1,17 @@
 package router
 
 import (
+	"net/http"
+
 	"refina-wallet/config/db"
+	"refina-wallet/config/env"
 	"refina-wallet/interface/http/middleware"
 	"refina-wallet/interface/http/routes"
 
 	"github.com/gin-gonic/gin"
 )
 
-func SetupRouter() *gin.Engine {
+func SetupHTTPServer() *http.Server {
 	router := gin.Default()
 
 	router.Use(middleware.CORSMiddleware(), middleware.GinMiddleware())
@@ -22,5 +25,8 @@ func SetupRouter() *gin.Engine {
 	routes.WalletRoutes(router, db.DB)
 	routes.WalletTypesRoutes(router, db.DB)
 
-	return router
+	return &http.Server{
+		Addr:    ":" + env.Cfg.Server.HTTPPort,
+		Handler: router,
+	}
 }

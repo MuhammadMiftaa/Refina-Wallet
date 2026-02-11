@@ -1,9 +1,17 @@
 package main
 
 import (
+	"context"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
 	"refina-wallet/config/db"
 	"refina-wallet/config/env"
 	"refina-wallet/config/log"
+	grpcserver "refina-wallet/interface/grpc/server"
 	"refina-wallet/interface/http/router"
 )
 
@@ -40,7 +48,40 @@ func init() {
 func main() {
 	defer log.Info("Refina API stopped")
 
-	r := router.SetupRouter() // Set up the HTTP router
-	r.Run(":" + env.Cfg.Server.Port)
-	log.Info("Starting HTTP server on port " + env.Cfg.Server.Port)
+	// Set up the HTTP server
+	httpServer := router.SetupHTTPServer()
+	if httpServer == nil {
+		go func() {
+			if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Log.Fatalf("Failed to start HTTP server: %s\n", err)
+			}
+		}()
+	}
+
+	// Set up the gRPC server
+	grpcServer, lis := grpcserver.SetupGRPCServer()
+	if grpcServer != nil && lis != nil {
+		go func() {
+			if err := grpcServer.Serve(*lis); err != nil {
+				log.Log.Fatalf("Failed to serve gRPC: %v", err)
+			}
+		}()
+		log.Info("Starting gRPC server successfully")
+	}
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	log.Log.Info("Shutting down servers...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := httpServer.Shutdown(ctx); err != nil {
+		log.Log.Infof("HTTP server forced to shutdown: %v", err)
+	}
+
+	grpcServer.GracefulStop()
+
+	log.Log.Info("Servers gracefully stopped")
 }
