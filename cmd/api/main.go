@@ -56,6 +56,7 @@ func main() {
 				log.Log.Fatalf("Failed to start HTTP server: %s\n", err)
 			}
 		}()
+		log.Info("Starting HTTP server successfully")
 	}
 
 	// Set up the gRPC server

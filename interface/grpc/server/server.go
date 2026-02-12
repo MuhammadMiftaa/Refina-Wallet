@@ -12,7 +12,7 @@ import (
 )
 
 func SetupGRPCServer() (*grpc.Server, *net.Listener, error) {
-	lis, err := net.Listen("tcp", env.Cfg.Server.GRPCPort)
+	lis, err := net.Listen("tcp", ":" + env.Cfg.Server.GRPCPort)
 	if err != nil {
 		return nil, nil, err
 	}
