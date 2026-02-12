@@ -3,7 +3,7 @@ module refina-wallet
 go 1.24.4
 
 require (
-	github.com/MuhammadMiftaa/Golang-Refina-Protobuf v1.0.3
+	github.com/MuhammadMiftaa/Golang-Refina-Protobuf v1.0.5
 	google.golang.org/grpc v1.78.0
 	gorm.io/gorm v1.31.1
 )

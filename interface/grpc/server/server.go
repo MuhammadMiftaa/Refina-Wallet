@@ -11,10 +11,10 @@ import (
 	"google.golang.org/grpc"
 )
 
-func SetupGRPCServer() (*grpc.Server, *net.Listener) {
+func SetupGRPCServer() (*grpc.Server, *net.Listener, error) {
 	lis, err := net.Listen("tcp", env.Cfg.Server.GRPCPort)
 	if err != nil {
-		return nil, nil
+		return nil, nil, err
 	}
 
 	s := grpc.NewServer()
@@ -24,5 +24,5 @@ func SetupGRPCServer() (*grpc.Server, *net.Listener) {
 	}
 	wpb.RegisterWalletServiceServer(s, walletServer)
 
-	return s, &lis
+	return s, &lis, nil
 }

@@ -12,6 +12,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main cmd/api/main
 FROM alpine:latest
 WORKDIR /app/
 COPY --from=builder app/main .
+
 EXPOSE 8080
+EXPOSE 9090
 
 CMD ["./main"]

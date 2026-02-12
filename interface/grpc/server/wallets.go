@@ -14,7 +14,7 @@ type walletServer struct {
 	walletsRepository repository.WalletsRepository
 }
 
-func (s *walletServer) GetWalletByID(ctx context.Context, req *wpb.GetWalletByIDRequest) (*wpb.GetWalletByIDResponse, error) {
+func (s *walletServer) GetWalletByID(ctx context.Context, req *wpb.WalletID) (*wpb.Wallet, error) {
 	wallet, err := s.walletsRepository.GetWalletByID(ctx, nil, req.GetId())
 	if err != nil {
 		return nil, err
@@ -31,12 +31,10 @@ func (s *walletServer) GetWalletByID(ctx context.Context, req *wpb.GetWalletByID
 		UpdatedAt:    wallet.UpdatedAt.String(),
 	}
 
-	return &wpb.GetWalletByIDResponse{
-		Wallet: walletResponse,
-	}, nil
+	return walletResponse, nil
 }
 
-func (s *walletServer) UpdateWallet(ctx context.Context, req *wpb.UpdateWalletRequest) (*wpb.UpdateWalletResponse, error) {
+func (s *walletServer) UpdateWallet(ctx context.Context, req *wpb.Wallet) (*wpb.Wallet, error) {
 	wallet, err := s.walletsRepository.GetWalletByID(ctx, nil, req.GetId())
 	if err != nil {
 		return nil, err
@@ -56,16 +54,14 @@ func (s *walletServer) UpdateWallet(ctx context.Context, req *wpb.UpdateWalletRe
 		return nil, err
 	}
 
-	return &wpb.UpdateWalletResponse{
-		Wallet: &wpb.Wallet{
-			Id:           updatedWallet.ID.String(),
-			UserId:       updatedWallet.UserID.String(),
-			Name:         updatedWallet.Name,
-			Number:       updatedWallet.Number,
-			Balance:      updatedWallet.Balance,
-			WalletTypeId: updatedWallet.WalletTypeID.String(),
-			CreatedAt:    updatedWallet.CreatedAt.String(),
-			UpdatedAt:    updatedWallet.UpdatedAt.String(),
-		},
+	return &wpb.Wallet{
+		Id:           updatedWallet.ID.String(),
+		UserId:       updatedWallet.UserID.String(),
+		Name:         updatedWallet.Name,
+		Number:       updatedWallet.Number,
+		Balance:      updatedWallet.Balance,
+		WalletTypeId: updatedWallet.WalletTypeID.String(),
+		CreatedAt:    updatedWallet.CreatedAt.String(),
+		UpdatedAt:    updatedWallet.UpdatedAt.String(),
 	}, nil
 }

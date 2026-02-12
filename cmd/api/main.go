@@ -59,7 +59,10 @@ func main() {
 	}
 
 	// Set up the gRPC server
-	grpcServer, lis := grpcserver.SetupGRPCServer()
+	grpcServer, lis, err := grpcserver.SetupGRPCServer()
+	if err != nil {
+		log.Log.Fatalf("Failed to set up gRPC server: %v", err)
+	}
 	if grpcServer != nil && lis != nil {
 		go func() {
 			if err := grpcServer.Serve(*lis); err != nil {
@@ -78,7 +81,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := httpServer.Shutdown(ctx); err != nil {
-		log.Log.Infof("HTTP server forced to shutdown: %v", err)
+		log.Log.Fatalf("Failed to shutdown HTTP server: %v", err)
 	}
 
 	grpcServer.GracefulStop()

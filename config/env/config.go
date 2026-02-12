@@ -15,11 +15,6 @@ type (
 		JWTSecretKey string `env:"JWT_SECRET_KEY"`
 	}
 
-	Client struct {
-		Url  string `env:"FRONTEND_URL"`
-		Port string `env:"CLIENT_PORT"`
-	}
-
 	Database struct {
 		DBHost     string `env:"DB_HOST"`
 		DBPort     string `env:"DB_PORT"`
@@ -30,7 +25,6 @@ type (
 
 	Config struct {
 		Server   Server
-		Client   Client
 		Database Database
 	}
 )
@@ -52,22 +46,13 @@ func LoadNative() ([]string, error) {
 		missing = append(missing, "MODE env is not set")
 	}
 	if Cfg.Server.HTTPPort, ok = os.LookupEnv("HTTP_PORT"); !ok {
-		missing = append(missing, "HTTP PORT env is not set")
+		missing = append(missing, "HTTP_PORT env is not set")
 	}
 	if Cfg.Server.GRPCPort, ok = os.LookupEnv("GRPC_PORT"); !ok {
-		missing = append(missing, "GRPC PORT env is not set")
+		missing = append(missing, "GRPC_PORT env is not set")
 	}
 	if Cfg.Server.JWTSecretKey, ok = os.LookupEnv("JWT_SECRET_KEY"); !ok {
 		missing = append(missing, "JWT_SECRET_KEY env is not set")
-	}
-	// ! ______________________________________________________
-
-	// ! Load Client configuration ____________________________
-	if Cfg.Client.Url, ok = os.LookupEnv("FRONTEND_URL"); !ok {
-		missing = append(missing, "FRONTEND_URL env is not set")
-	}
-	if Cfg.Client.Port, ok = os.LookupEnv("CLIENT_PORT"); !ok {
-		missing = append(missing, "CLIENT_PORT env is not set")
 	}
 	// ! ______________________________________________________
 
@@ -111,22 +96,13 @@ func LoadByViper() ([]string, error) {
 		missing = append(missing, "MODE env is not set")
 	}
 	if Cfg.Server.HTTPPort = config.GetString("HTTP_PORT"); Cfg.Server.HTTPPort == "" {
-		missing = append(missing, "HTTP PORT env is not set")
+		missing = append(missing, "HTTP_PORT env is not set")
 	}
 	if Cfg.Server.GRPCPort = config.GetString("GRPC_PORT"); Cfg.Server.GRPCPort == "" {
-		missing = append(missing, "GRPC PORT env is not set")
+		missing = append(missing, "GRPC_PORT env is not set")
 	}
 	if Cfg.Server.JWTSecretKey = config.GetString("JWT_SECRET_KEY"); Cfg.Server.JWTSecretKey == "" {
 		missing = append(missing, "JWT_SECRET_KEY env is not set")
-	}
-	// ! ______________________________________________________
-
-	// ! Load Client configuration ____________________________
-	if Cfg.Client.Url = config.GetString("CLIENT.URL"); Cfg.Client.Url == "" {
-		missing = append(missing, "CLIENT.URL env is not set")
-	}
-	if Cfg.Client.Port = config.GetString("CLIENT.PORT"); Cfg.Client.Port == "" {
-		missing = append(missing, "CLIENT.PORT env is not set")
 	}
 	// ! ______________________________________________________
 
