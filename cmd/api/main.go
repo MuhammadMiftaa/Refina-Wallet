@@ -50,7 +50,7 @@ func main() {
 
 	// Set up the HTTP server
 	httpServer := router.SetupHTTPServer()
-	if httpServer == nil {
+	if httpServer != nil {
 		go func() {
 			if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 				log.Log.Fatalf("Failed to start HTTP server: %s\n", err)
