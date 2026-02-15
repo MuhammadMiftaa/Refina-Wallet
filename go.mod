@@ -3,12 +3,13 @@ module refina-wallet
 go 1.24.4
 
 require (
-	github.com/MuhammadMiftaa/Golang-Refina-Protobuf v1.0.5
+	github.com/MuhammadMiftaa/Golang-Refina-Protobuf v1.1.2
 	google.golang.org/grpc v1.78.0
 	gorm.io/gorm v1.31.1
 )
 
 require (
+	github.com/MuhammadMiftaa/Refina-Protobuf v1.3.1 // indirect
 	github.com/bytedance/sonic v1.14.0 // indirect
 	github.com/bytedance/sonic/loader v0.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
