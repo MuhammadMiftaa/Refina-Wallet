@@ -13,6 +13,7 @@ import (
 	"refina-wallet/config/log"
 	grpcserver "refina-wallet/interface/grpc/server"
 	"refina-wallet/interface/http/router"
+	"refina-wallet/interface/queue"
 )
 
 func init() {
@@ -41,6 +42,10 @@ func init() {
 	log.Info("Setup Database Connection Start")
 	db.SetupDatabase(env.Cfg.Database) // Initialize the database connection and run migrations
 	log.Info("Setup Database Connection Success")
+
+	log.Info("Setup RabbitMQ Connection Start")
+	queue.SetupRabbitMQ(env.Cfg.RabbitMQ) // Initialize RabbitMQ connection
+	log.Info("Setup RabbitMQ Connection Success")
 
 	log.Info("Starting Refina API...")
 }
