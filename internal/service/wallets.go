@@ -2,8 +2,11 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
+	"refina-wallet/config/log"
+	"refina-wallet/interface/queue"
 	"refina-wallet/internal/repository"
 	"refina-wallet/internal/types/dto"
 	"refina-wallet/internal/types/model"
@@ -24,12 +27,14 @@ type WalletsService interface {
 type walletsService struct {
 	txManager         repository.TxManager
 	walletsRepository repository.WalletsRepository
+	queue             queue.RabbitMQClient
 }
 
-func NewWalletService(txManager repository.TxManager, walletsRepository repository.WalletsRepository) WalletsService {
+func NewWalletService(txManager repository.TxManager, walletsRepository repository.WalletsRepository, queue queue.RabbitMQClient) WalletsService {
 	return &walletsService{
 		txManager:         txManager,
 		walletsRepository: walletsRepository,
+		queue:             queue,
 	}
 }
 
@@ -121,6 +126,18 @@ func (wallet_serv *walletsService) CreateWallet(ctx context.Context, token strin
 	}
 
 	walletResponse := utils.ConvertToResponseType(newWallet).(dto.WalletsResponse)
+
+	go func() {
+		body, err := json.Marshal(walletResponse)
+		if err != nil {
+			log.Log.Errorf("Failed to marshal walletResponse: %v", err)
+			return
+		}
+
+		if err := wallet_serv.queue.Publish(ctx, "wallet.created", body); err != nil {
+			log.Log.Errorf("Failed to publish wallet.created event: %v", err)
+		}
+	}()
 
 	return walletResponse, nil
 }

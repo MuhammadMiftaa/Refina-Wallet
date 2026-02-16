@@ -38,23 +38,23 @@ func init() {
 			log.Warn("Missing environment variable: " + envVar)
 		}
 	}
-
-	log.Info("Setup Database Connection Start")
-	db.SetupDatabase(env.Cfg.Database) // Initialize the database connection and run migrations
-	log.Info("Setup Database Connection Success")
-
-	log.Info("Setup RabbitMQ Connection Start")
-	queue.SetupRabbitMQ(env.Cfg.RabbitMQ) // Initialize RabbitMQ connection
-	log.Info("Setup RabbitMQ Connection Success")
-
-	log.Info("Starting Refina API...")
 }
 
 func main() {
 	defer log.Info("Refina API stopped")
 
+	log.Info("Setup Database Connection Start")
+	dbInstance := db.GetInstance(env.Cfg.Database)
+	log.Info("Setup Database Connection Success")
+
+	log.Info("Setup RabbitMQ Connection Start")
+	queueInstance := queue.GetInstance(env.Cfg.RabbitMQ)
+	log.Info("Setup RabbitMQ Connection Success")
+
+	log.Info("Starting Refina API...")
+
 	// Set up the HTTP server
-	httpServer := router.SetupHTTPServer()
+	httpServer := router.SetupHTTPServer(dbInstance, queueInstance)
 	if httpServer != nil {
 		go func() {
 			if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -65,7 +65,7 @@ func main() {
 	}
 
 	// Set up the gRPC server
-	grpcServer, lis, err := grpcserver.SetupGRPCServer()
+	grpcServer, lis, err := grpcserver.SetupGRPCServer(dbInstance)
 	if err != nil {
 		log.Log.Fatalf("Failed to set up gRPC server: %v", err)
 	}

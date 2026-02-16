@@ -7,11 +7,12 @@ import (
 	"refina-wallet/config/env"
 	"refina-wallet/interface/http/middleware"
 	"refina-wallet/interface/http/routes"
+	"refina-wallet/interface/queue"
 
 	"github.com/gin-gonic/gin"
 )
 
-func SetupHTTPServer() *http.Server {
+func SetupHTTPServer(dbInstance db.DatabaseClient, queueInstance queue.RabbitMQClient) *http.Server {
 	router := gin.Default()
 
 	router.Use(middleware.CORSMiddleware(), middleware.GinMiddleware())
@@ -22,8 +23,8 @@ func SetupHTTPServer() *http.Server {
 		})
 	})
 
-	routes.WalletRoutes(router, db.DB)
-	routes.WalletTypesRoutes(router, db.DB)
+	routes.WalletRoutes(router, dbInstance.GetDB(), queueInstance)
+	routes.WalletTypesRoutes(router, dbInstance.GetDB())
 
 	return &http.Server{
 		Addr:    ":" + env.Cfg.Server.HTTPPort,

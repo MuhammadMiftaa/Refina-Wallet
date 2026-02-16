@@ -1,7 +1,9 @@
 package queue
 
 import (
+	"context"
 	"fmt"
+	"sync"
 
 	"refina-wallet/config/env"
 	"refina-wallet/config/log"
@@ -9,36 +11,98 @@ import (
 	"github.com/rabbitmq/amqp091-go"
 )
 
-var connection *amqp091.Connection
+type RabbitMQClient interface {
+	GetChannel() (*amqp091.Channel, error)
+	Close() error
+	Publish(ctx context.Context, routingKey string, body []byte) error
+}
 
-func SetupRabbitMQ(cfg env.RabbitMQ) {
-	connectionString := fmt.Sprintf("amqp://%s:%s@%s:%s/%s", cfg.RMQUser, cfg.RMQPassword, cfg.RMQHost, cfg.RMQPort, cfg.RMQVirtualHost)
+type rabbitMQClient struct {
+	connection *amqp091.Connection
+	mu         sync.RWMutex
+}
+
+var (
+	instance RabbitMQClient
+	once     sync.Once
+)
+
+func NewRabbitMQClient(cfg env.RabbitMQ) (RabbitMQClient, error) {
+	connectionString := fmt.Sprintf("amqp://%s:%s@%s:%s/%s", 
+		cfg.RMQUser, 
+		cfg.RMQPassword, 
+		cfg.RMQHost, 
+		cfg.RMQPort, 
+		cfg.RMQVirtualHost,
+	)
 
 	conn, err := amqp091.Dial(connectionString)
 	if err != nil {
-		log.Log.Fatalf("Failed to connect to RabbitMQ: %v", err)
+		return nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)
 	}
 
-	connection = conn
+	return &rabbitMQClient{
+		connection: conn,
+	}, nil
 }
 
-func Close() {
-	if connection != nil {
-		if err := connection.Close(); err != nil {
-			log.Error("Failed to close RabbitMQ connection: " + err.Error())
+func GetInstance(cfg env.RabbitMQ) RabbitMQClient {
+	once.Do(func() {
+		client, err := NewRabbitMQClient(cfg)
+		if err != nil {
+			log.Log.Fatalf("Failed to initialize RabbitMQ client: %v", err)
 		}
-	}
+		instance = client
+	})
+
+	return instance
 }
 
-func GetChannel() (*amqp091.Channel, error) {
-	if connection == nil {
+func (r *rabbitMQClient) GetChannel() (*amqp091.Channel, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if r.connection == nil {
 		return nil, fmt.Errorf("RabbitMQ connection is not initialized")
 	}
 
-	channel, err := connection.Channel()
+	channel, err := r.connection.Channel()
 	if err != nil {
 		return nil, fmt.Errorf("failed to open a channel: %w", err)
 	}
 
 	return channel, nil
+}
+
+func (r *rabbitMQClient) Close() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.connection != nil {
+		if err := r.connection.Close(); err != nil {
+			return fmt.Errorf("failed to close RabbitMQ connection: %w", err)
+		}
+		r.connection = nil
+	}
+
+	return nil
+}
+
+func (r *rabbitMQClient) Publish(ctx context.Context, routingKey string, body []byte) error {
+	channel, err := r.GetChannel()
+	if err != nil {
+		return err
+	}
+	defer channel.Close()
+
+	message := amqp091.Publishing{
+		ContentType: "application/json",
+		Body:        body,
+	}
+
+	if err := channel.PublishWithContext(ctx, "refina", routingKey, false, false, message); err != nil {
+		return fmt.Errorf("failed to publish message: %w", err)
+	}
+
+	return nil
 }
