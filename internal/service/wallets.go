@@ -25,23 +25,26 @@ type WalletsService interface {
 }
 
 type walletsService struct {
-	txManager         repository.TxManager
-	walletsRepository repository.WalletsRepository
-	outboxRepository  repository.OutboxRepository
-	queue             queue.RabbitMQClient
+	txManager             repository.TxManager
+	walletsRepository     repository.WalletsRepository
+	walletTypesRepository repository.WalletTypesRepository
+	outboxRepository      repository.OutboxRepository
+	queue                 queue.RabbitMQClient
 }
 
 func NewWalletService(
 	txManager repository.TxManager,
 	walletsRepository repository.WalletsRepository,
+	walletTypesRepository repository.WalletTypesRepository,
 	outboxRepository repository.OutboxRepository,
 	queue queue.RabbitMQClient,
 ) WalletsService {
 	return &walletsService{
-		txManager:         txManager,
-		walletsRepository: walletsRepository,
-		outboxRepository:  outboxRepository,
-		queue:             queue,
+		txManager:             txManager,
+		walletsRepository:     walletsRepository,
+		walletTypesRepository: walletTypesRepository,
+		outboxRepository:      outboxRepository,
+		queue:                 queue,
 	}
 }
 
@@ -121,6 +124,11 @@ func (wallet_serv *walletsService) CreateWallet(ctx context.Context, token strin
 		return dto.WalletsResponse{}, errors.New("invalid wallet type id")
 	}
 
+	walletType, err := wallet_serv.walletTypesRepository.GetWalletTypeByID(ctx, nil, wallet.WalletTypeID)
+	if err != nil {
+		return dto.WalletsResponse{}, errors.New("wallet type not found")
+	}
+
 	tx, err := wallet_serv.txManager.Begin(ctx)
 	if err != nil {
 		return dto.WalletsResponse{}, errors.New("failed to begin transaction")
@@ -140,6 +148,7 @@ func (wallet_serv *walletsService) CreateWallet(ctx context.Context, token strin
 		Name:         wallet.Name,
 		Number:       wallet.Number,
 		Balance:      wallet.Balance,
+		WalletType:   walletType,
 	})
 	if err != nil {
 		tx.Rollback()

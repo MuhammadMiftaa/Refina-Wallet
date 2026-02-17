@@ -14,9 +14,10 @@ import (
 func WalletRoutes(version *gin.Engine, db *gorm.DB, queueInstance queue.RabbitMQClient) {
 	txManager := repository.NewTxManager(db)
 	walletRepo := repository.NewWalletRepository(db)
+	walletTypeRepo := repository.NewWalletTypesRepository(db)
 	outboxRepo := repository.NewOutboxRepository(db)
-	
-	walletServ := service.NewWalletService(txManager, walletRepo, outboxRepo, queueInstance)
+
+	walletServ := service.NewWalletService(txManager, walletRepo, walletTypeRepo, outboxRepo, queueInstance)
 	walletHandler := handler.NewWalletHandler(walletServ)
 
 	wallets := version.Group("/wallets")
