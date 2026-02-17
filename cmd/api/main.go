@@ -14,10 +14,12 @@ import (
 	grpcserver "refina-wallet/interface/grpc/server"
 	"refina-wallet/interface/http/router"
 	"refina-wallet/interface/queue"
+	"refina-wallet/internal/repository"
+	"refina-wallet/internal/service"
 )
 
 func init() {
-	log.SetupLogger() // Initialize the logger configuration
+	log.SetupLogger()
 
 	var err error
 	var missing []string
@@ -51,6 +53,22 @@ func main() {
 	queueInstance := queue.GetInstance(env.Cfg.RabbitMQ)
 	log.Info("Setup RabbitMQ Connection Success")
 
+	// Create context for graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Setup Outbox Publisher
+	log.Info("Setup Outbox Publisher Start")
+	outboxRepo := repository.NewOutboxRepository(dbInstance.GetDB())
+	outboxPublisher := service.NewOutboxPublisher(outboxRepo, queueInstance)
+
+	// Start outbox publisher worker
+	go outboxPublisher.Start(ctx)
+
+	// Start cleanup job (optional)
+	go outboxPublisher.StartCleanupJob(ctx)
+	log.Info("Outbox Publisher started successfully")
+
 	log.Info("Starting Refina API...")
 
 	// Set up the HTTP server
@@ -61,7 +79,7 @@ func main() {
 				log.Log.Fatalf("Failed to start HTTP server: %s\n", err)
 			}
 		}()
-		log.Info("Starting HTTP server successfully")
+		log.Info("Starting HTTP server successfully. Running in port: " + env.Cfg.Server.HTTPPort)
 	}
 
 	// Set up the gRPC server
@@ -75,7 +93,7 @@ func main() {
 				log.Log.Fatalf("Failed to serve gRPC: %v", err)
 			}
 		}()
-		log.Info("Starting gRPC server successfully")
+		log.Info("Starting gRPC server successfully. Listening on port: " + env.Cfg.Server.GRPCPort)
 	}
 
 	quit := make(chan os.Signal, 1)
@@ -84,13 +102,19 @@ func main() {
 
 	log.Log.Info("Shutting down servers...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := httpServer.Shutdown(ctx); err != nil {
+	// Cancel context to stop outbox publisher
+	cancel()
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
+
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		log.Log.Fatalf("Failed to shutdown HTTP server: %v", err)
 	}
 
 	grpcServer.GracefulStop()
+
+	
 
 	log.Log.Info("Servers gracefully stopped")
 }

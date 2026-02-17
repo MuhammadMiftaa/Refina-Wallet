@@ -7,6 +7,7 @@ import (
 
 	"refina-wallet/config/env"
 	"refina-wallet/config/log"
+	"refina-wallet/internal/utils/data"
 
 	"github.com/rabbitmq/amqp091-go"
 )
@@ -28,17 +29,35 @@ var (
 )
 
 func NewRabbitMQClient(cfg env.RabbitMQ) (RabbitMQClient, error) {
-	connectionString := fmt.Sprintf("amqp://%s:%s@%s:%s/%s", 
-		cfg.RMQUser, 
-		cfg.RMQPassword, 
-		cfg.RMQHost, 
-		cfg.RMQPort, 
+	connectionString := fmt.Sprintf("amqp://%s:%s@%s:%s/%s",
+		cfg.RMQUser,
+		cfg.RMQPassword,
+		cfg.RMQHost,
+		cfg.RMQPort,
 		cfg.RMQVirtualHost,
 	)
 
 	conn, err := amqp091.Dial(connectionString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)
+	}
+
+	channel, err := conn.Channel()
+	if err != nil {
+		return nil, fmt.Errorf("failed to open a channel: %w", err)
+	}
+
+	err = channel.ExchangeDeclare(
+		data.OUTBOX_PUBLISH_EXCHANGE,
+		"topic",
+		true,  // durable
+		false, // auto-deleted
+		false, // internal
+		false, // no-wait
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to declare exchange: %w", err)
 	}
 
 	return &rabbitMQClient{

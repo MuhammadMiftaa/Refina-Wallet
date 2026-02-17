@@ -12,14 +12,14 @@ import (
 
 func WalletTypesRoutes(version *gin.Engine, db *gorm.DB) {
 	txManager := repository.NewTxManager(db)
-	WalletTypes_repo := repository.NewWalletTypesRepository(db)
-	WalletTypes_serv := service.NewWalletTypesService(txManager, WalletTypes_repo)
-	WalletTypes_handler := handler.NewWalletTypesHandler(WalletTypes_serv)
+	WalletTypesRepo := repository.NewWalletTypesRepository(db)
+	WalletTypesServ := service.NewWalletTypesService(txManager, WalletTypesRepo)
+	WalletTypesHandler := handler.NewWalletTypesHandler(WalletTypesServ)
 
 	version.Use(middleware.AuthMiddleware())
-	version.GET("wallet-types", WalletTypes_handler.GetAllWalletTypes)
-	version.GET("wallet-types/:id", WalletTypes_handler.GetWalletTypeByID)
-	version.POST("wallet-types", WalletTypes_handler.CreateWalletType)
-	version.PUT("wallet-types/:id", WalletTypes_handler.UpdateWalletType)
-	version.DELETE("wallet-types/:id", WalletTypes_handler.DeleteWalletType)
+	version.GET("wallet-types", WalletTypesHandler.GetAllWalletTypes)
+	version.GET("wallet-types/:id", WalletTypesHandler.GetWalletTypeByID)
+	version.POST("wallet-types", WalletTypesHandler.CreateWalletType)
+	version.PUT("wallet-types/:id", WalletTypesHandler.UpdateWalletType)
+	version.DELETE("wallet-types/:id", WalletTypesHandler.DeleteWalletType)
 }

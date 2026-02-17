@@ -13,18 +13,20 @@ import (
 
 func WalletRoutes(version *gin.Engine, db *gorm.DB, queueInstance queue.RabbitMQClient) {
 	txManager := repository.NewTxManager(db)
-	Wallet_repo := repository.NewWalletRepository(db)
-	Wallet_serv := service.NewWalletService(txManager, Wallet_repo, queueInstance)
-	Wallet_handler := handler.NewWalletHandler(Wallet_serv)
+	walletRepo := repository.NewWalletRepository(db)
+	outboxRepo := repository.NewOutboxRepository(db)
+	
+	walletServ := service.NewWalletService(txManager, walletRepo, outboxRepo, queueInstance)
+	walletHandler := handler.NewWalletHandler(walletServ)
 
 	wallets := version.Group("/wallets")
 	wallets.Use(middleware.AuthMiddleware())
 
-	wallets.GET("", Wallet_handler.GetAllWallets)
-	wallets.GET(":id", Wallet_handler.GetWalletByID)
-	wallets.GET("user", Wallet_handler.GetWalletsByUserID)
-	wallets.GET("user-by-type", Wallet_handler.GetWalletsByUserIDGroupByType)
-	wallets.POST("", Wallet_handler.CreateWallet)
-	wallets.PUT(":id", Wallet_handler.UpdateWallet)
-	wallets.DELETE(":id", Wallet_handler.DeleteWallet)
+	wallets.GET("", walletHandler.GetAllWallets)
+	wallets.GET(":id", walletHandler.GetWalletByID)
+	wallets.GET("user", walletHandler.GetWalletsByUserID)
+	wallets.GET("user-by-type", walletHandler.GetWalletsByUserIDGroupByType)
+	wallets.POST("", walletHandler.CreateWallet)
+	wallets.PUT(":id", walletHandler.UpdateWallet)
+	wallets.DELETE(":id", walletHandler.DeleteWallet)
 }
