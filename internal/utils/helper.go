@@ -15,12 +15,14 @@ func ConvertToResponseType(data interface{}) interface{} {
 	switch v := data.(type) {
 	case model.Wallets:
 		return dto.WalletsResponse{
-			ID:           v.ID.String(),
-			UserID:       v.UserID.String(),
-			WalletTypeID: v.WalletTypeID.String(),
-			Name:         v.Name,
-			Number:       v.Number,
-			Balance:      v.Balance,
+			ID:             v.ID.String(),
+			UserID:         v.UserID.String(),
+			WalletTypeID:   v.WalletTypeID.String(),
+			WalletType:     string(v.WalletType.Type),
+			WalletTypeName: v.WalletType.Name,
+			Name:           v.Name,
+			Number:         v.Number,
+			Balance:        v.Balance,
 		}
 	case model.WalletTypes:
 		return dto.WalletTypesResponse{

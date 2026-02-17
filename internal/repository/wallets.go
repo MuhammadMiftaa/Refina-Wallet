@@ -50,7 +50,7 @@ func (wallet_repo *walletsRepository) GetAllWallets(ctx context.Context, tx Tran
 	}
 
 	var wallets []model.Wallets
-	if err := db.Find(&wallets).Error; err != nil {
+	if err := db.Preload("WalletType").Order("created_at desc").Find(&wallets).Error; err != nil {
 		return nil, err
 	}
 	return wallets, nil
@@ -63,7 +63,7 @@ func (wallet_repo *walletsRepository) GetWalletByID(ctx context.Context, tx Tran
 	}
 
 	var wallet model.Wallets
-	if err := db.Where("id = ?", id).First(&wallet).Error; err != nil {
+	if err := db.Preload("WalletType").Where("id = ?", id).First(&wallet).Error; err != nil {
 		return model.Wallets{}, err
 	}
 	return wallet, nil
@@ -76,7 +76,7 @@ func (wallet_repo *walletsRepository) GetWalletsByUserID(ctx context.Context, tx
 	}
 
 	var userWallets []model.Wallets
-	err = db.Where("user_id = ?", id).Find(&userWallets).Error
+	err = db.Preload("WalletType").Where("user_id = ?", id).Order("created_at desc").Find(&userWallets).Error
 	if err != nil {
 		return nil, errors.New("user wallets not found")
 	}

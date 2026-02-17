@@ -196,7 +196,7 @@ func (wallet_serv *walletsService) UpdateWallet(ctx context.Context, id string, 
 		}
 	}()
 
-	walletUpdated, err := wallet_serv.walletsRepository.UpdateWallet(ctx, nil, existingWallet)
+	walletUpdated, err := wallet_serv.walletsRepository.UpdateWallet(ctx, tx, existingWallet)
 	if err != nil {
 		return dto.WalletsResponse{}, err
 	}
@@ -247,7 +247,7 @@ func (wallet_serv *walletsService) DeleteWallet(ctx context.Context, id string) 
 		}
 	}()
 
-	deletedWallet, err := wallet_serv.walletsRepository.DeleteWallet(ctx, nil, existingWallet)
+	deletedWallet, err := wallet_serv.walletsRepository.DeleteWallet(ctx, tx, existingWallet)
 	if err != nil {
 		return dto.WalletsResponse{}, err
 	}
