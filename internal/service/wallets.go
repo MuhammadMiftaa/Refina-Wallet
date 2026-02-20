@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 
+	"refina-wallet/interface/grpc/client"
 	"refina-wallet/interface/queue"
 	"refina-wallet/internal/repository"
 	"refina-wallet/internal/types/dto"
@@ -12,6 +13,10 @@ import (
 	"refina-wallet/internal/types/view"
 	"refina-wallet/internal/utils"
 	"refina-wallet/internal/utils/data"
+
+	tpb "github.com/MuhammadMiftaa/Refina-Protobuf/transaction"
+
+	"github.com/google/uuid"
 )
 
 type WalletsService interface {
@@ -29,6 +34,7 @@ type walletsService struct {
 	walletsRepository     repository.WalletsRepository
 	walletTypesRepository repository.WalletTypesRepository
 	outboxRepository      repository.OutboxRepository
+	transactionClient     client.TransactionClient
 	queue                 queue.RabbitMQClient
 }
 
@@ -37,6 +43,7 @@ func NewWalletService(
 	walletsRepository repository.WalletsRepository,
 	walletTypesRepository repository.WalletTypesRepository,
 	outboxRepository repository.OutboxRepository,
+	transactionRepository client.TransactionClient,
 	queue queue.RabbitMQClient,
 ) WalletsService {
 	return &walletsService{
@@ -44,6 +51,7 @@ func NewWalletService(
 		walletsRepository:     walletsRepository,
 		walletTypesRepository: walletTypesRepository,
 		outboxRepository:      outboxRepository,
+		transactionClient:     transactionRepository,
 		queue:                 queue,
 	}
 }
@@ -134,15 +142,22 @@ func (wallet_serv *walletsService) CreateWallet(ctx context.Context, token strin
 		return dto.WalletsResponse{}, errors.New("failed to begin transaction")
 	}
 
+	initialDeposit := new(tpb.Transaction)
+
 	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			panic(r)
+		tx.Rollback()
+		if err != nil && initialDeposit != nil && initialDeposit.GetId() != "" {
+			// GRPC call
+			wallet_serv.transactionClient.CancelInitialDeposit(ctx, initialDeposit.GetId())
 		}
 	}()
 
 	// Create wallet
+	walletID := uuid.New()
 	newWallet, err := wallet_serv.walletsRepository.CreateWallet(ctx, tx, model.Wallets{
+		Base: model.Base{
+			ID: walletID,
+		},
 		UserID:       UserID,
 		WalletTypeID: WalletTypeID,
 		Name:         wallet.Name,
@@ -151,7 +166,12 @@ func (wallet_serv *walletsService) CreateWallet(ctx context.Context, token strin
 		WalletType:   walletType,
 	})
 	if err != nil {
-		tx.Rollback()
+		return dto.WalletsResponse{}, err
+	}
+
+	// GRPC call
+	initialDeposit, err = wallet_serv.transactionClient.InitialDeposit(ctx, walletID.String(), wallet.Balance)
+	if err != nil {
 		return dto.WalletsResponse{}, err
 	}
 
@@ -171,7 +191,6 @@ func (wallet_serv *walletsService) CreateWallet(ctx context.Context, token strin
 	}
 
 	if err := wallet_serv.outboxRepository.Create(ctx, tx, outboxMsg); err != nil {
-		tx.Rollback()
 		return dto.WalletsResponse{}, err
 	}
 
@@ -191,7 +210,6 @@ func (wallet_serv *walletsService) UpdateWallet(ctx context.Context, id string, 
 
 	existingWallet.Name = wallet.Name
 	existingWallet.Number = wallet.Number
-	existingWallet.Balance = wallet.Balance
 
 	tx, err := wallet_serv.txManager.Begin(ctx)
 	if err != nil {
@@ -199,10 +217,7 @@ func (wallet_serv *walletsService) UpdateWallet(ctx context.Context, id string, 
 	}
 
 	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			panic(r)
-		}
+		tx.Rollback()
 	}()
 
 	walletUpdated, err := wallet_serv.walletsRepository.UpdateWallet(ctx, tx, existingWallet)
@@ -226,7 +241,6 @@ func (wallet_serv *walletsService) UpdateWallet(ctx context.Context, id string, 
 	}
 
 	if err := wallet_serv.outboxRepository.Create(ctx, tx, outboxMsg); err != nil {
-		tx.Rollback()
 		return dto.WalletsResponse{}, err
 	}
 
@@ -244,16 +258,17 @@ func (wallet_serv *walletsService) DeleteWallet(ctx context.Context, id string) 
 		return dto.WalletsResponse{}, errors.New("wallet not found")
 	}
 
+	if existingWallet.Balance != 0 {
+		return dto.WalletsResponse{}, errors.New("wallet balance must be zero before deletion")
+	}
+
 	tx, err := wallet_serv.txManager.Begin(ctx)
 	if err != nil {
 		return dto.WalletsResponse{}, errors.New("failed to begin transaction")
 	}
 
 	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			panic(r)
-		}
+		tx.Rollback()
 	}()
 
 	deletedWallet, err := wallet_serv.walletsRepository.DeleteWallet(ctx, tx, existingWallet)
@@ -277,7 +292,6 @@ func (wallet_serv *walletsService) DeleteWallet(ctx context.Context, id string) 
 	}
 
 	if err := wallet_serv.outboxRepository.Create(ctx, tx, outboxMsg); err != nil {
-		tx.Rollback()
 		return dto.WalletsResponse{}, err
 	}
 

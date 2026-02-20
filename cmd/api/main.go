@@ -11,6 +11,7 @@ import (
 	"refina-wallet/config/db"
 	"refina-wallet/config/env"
 	"refina-wallet/config/log"
+	"refina-wallet/interface/grpc/client"
 	grpcserver "refina-wallet/interface/grpc/server"
 	"refina-wallet/interface/http/router"
 	"refina-wallet/interface/queue"
@@ -71,6 +72,14 @@ func main() {
 
 	log.Info("Starting Refina API...")
 
+	// Set up the gRPC client
+	grpcManager := client.GetManager()
+	err := grpcManager.SetupGRPCClient()
+	if err != nil {
+		log.Log.Fatalf("Failed to set up gRPC client: %v", err)
+	}
+	log.Info("gRPC client setup successfully")
+
 	// Set up the HTTP server
 	httpServer := router.SetupHTTPServer(dbInstance, queueInstance)
 	if httpServer != nil {
@@ -114,7 +123,9 @@ func main() {
 
 	grpcServer.GracefulStop()
 
-	
+	if err := grpcManager.Shutdown(ctx); err != nil {
+		log.Log.Fatalf("Failed to shutdown gRPC clients: %v", err)
+	}
 
 	log.Log.Info("Servers gracefully stopped")
 }

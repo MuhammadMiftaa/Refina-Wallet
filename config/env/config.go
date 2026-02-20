@@ -31,10 +31,15 @@ type (
 		RMQVirtualHost string `env:"RABBITMQ_VIRTUAL_HOST"`
 	}
 
+	GRPCConfig struct {
+		TransactionAddress string `env:"TRANSACTION_ADDRESS"`
+	}
+
 	Config struct {
-		Server   Server
-		Database Database
-		RabbitMQ RabbitMQ
+		Server     Server
+		Database   Database
+		RabbitMQ   RabbitMQ
+		GRPCConfig GRPCConfig
 	}
 )
 
@@ -98,6 +103,12 @@ func LoadNative() ([]string, error) {
 	}
 	if Cfg.RabbitMQ.RMQVirtualHost, ok = os.LookupEnv("RABBITMQ_VIRTUAL_HOST"); !ok {
 		missing = append(missing, "RABBITMQ_VIRTUAL_HOST env is not set")
+	}
+	// ! ______________________________________________________
+
+	// ! Load gRPC configuration _____________________________
+	if Cfg.GRPCConfig.TransactionAddress, ok = os.LookupEnv("TRANSACTION_ADDRESS"); !ok {
+		missing = append(missing, "TRANSACTION_ADDRESS env is not set")
 	}
 	// ! ______________________________________________________
 
@@ -166,6 +177,12 @@ func LoadByViper() ([]string, error) {
 	}
 	if Cfg.RabbitMQ.RMQVirtualHost = config.GetString("MESSAGE-BROKER.RABBITMQ.VIRTUAL_HOST"); Cfg.RabbitMQ.RMQVirtualHost == "" {
 		missing = append(missing, "MESSAGE-BROKER.RABBITMQ.VIRTUAL_HOST env is not set")
+	}
+	// ! ______________________________________________________
+
+	// ! Load gRPC configuration _____________________________
+	if Cfg.GRPCConfig.TransactionAddress = config.GetString("GRPC-CONFIG.TRANSACTION_ADDRESS"); Cfg.GRPCConfig.TransactionAddress == "" {
+		missing = append(missing, "GRPC-CONFIG.TRANSACTION_ADDRESS env is not set")
 	}
 	// ! ______________________________________________________
 
