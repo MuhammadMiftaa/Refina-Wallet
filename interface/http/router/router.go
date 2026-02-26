@@ -15,7 +15,7 @@ import (
 func SetupHTTPServer(dbInstance db.DatabaseClient, queueInstance queue.RabbitMQClient) *http.Server {
 	router := gin.Default()
 
-	router.Use(middleware.CORSMiddleware(), middleware.GinMiddleware())
+	router.Use(middleware.CORSMiddleware(), middleware.GinMiddleware(), middleware.RequestIDMiddleware())
 
 	router.GET("test", func(c *gin.Context) {
 		c.JSON(200, gin.H{

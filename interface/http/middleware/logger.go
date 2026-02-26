@@ -37,19 +37,13 @@ func httpRequest(c *gin.Context, latency time.Duration, statusCode int) {
 	}
 
 	// Format request size
-	requestSize := c.Request.ContentLength
-	if requestSize < 0 {
-		requestSize = 0
-	}
+	requestSize := max(c.Request.ContentLength, 0)
 
 	// Response size (approximate, karena gin tidak menyediakan exact response size)
-	responseSize := c.Writer.Size()
-	if responseSize < 0 {
-		responseSize = 0
-	}
+	responseSize := max(c.Writer.Size(), 0)
 
 	// Fields untuk structured logging
-	fields := map[string]interface{}{
+	fields := map[string]any{
 		"method":        c.Request.Method,
 		"uri":           c.Request.RequestURI,
 		"status":        statusCode,
