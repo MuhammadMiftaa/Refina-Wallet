@@ -95,7 +95,7 @@ func (f *ApacheStyleFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 				valueStr = fmt.Sprintf("%v", v)
 			}
 
-			fmt.Fprintf(b, "%s=%s", key, valueStr)
+			fmt.Fprintf(b, "%s: %s", key, valueStr)
 			fieldCount++
 		}
 	}
@@ -188,4 +188,20 @@ func Debug(msg string, fields ...map[string]interface{}) {
 		entry = Log.WithFields(logrus.Fields(fields[0]))
 	}
 	entry.Debug(msg)
+}
+
+func Fatal(msg string, fields ...map[string]interface{}) {
+	entry := Log.WithFields(logrus.Fields{})
+	if len(fields) > 0 {
+		entry = Log.WithFields(logrus.Fields(fields[0]))
+	}
+	entry.Fatal(msg)
+}
+
+func Trace(msg string, fields ...map[string]interface{}) {
+	entry := Log.WithFields(logrus.Fields{})
+	if len(fields) > 0 {
+		entry = Log.WithFields(logrus.Fields(fields[0]))
+	}
+	entry.Trace(msg)
 }

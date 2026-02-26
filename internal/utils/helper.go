@@ -2,6 +2,7 @@ package utils
 
 import (
 	"errors"
+	"time"
 
 	"refina-wallet/config/env"
 	"refina-wallet/internal/types/dto"
@@ -62,4 +63,8 @@ func ParseUUID(id string) (uuid.UUID, error) {
 		return uuid.UUID{}, err
 	}
 	return parsedID, nil
+}
+
+func Ms(d time.Duration) float64 {
+	return float64(d.Nanoseconds()) / 1e6
 }
