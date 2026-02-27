@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func ConvertToResponseType(data interface{}) interface{} {
+func ConvertToResponseType(data any) any {
 	switch v := data.(type) {
 	case model.Wallets:
 		return dto.WalletsResponse{
@@ -38,7 +38,7 @@ func ConvertToResponseType(data interface{}) interface{} {
 }
 
 func VerifyToken(jwtToken string) (dto.UserData, error) {
-	token, _ := jwt.Parse(jwtToken, func(t *jwt.Token) (interface{}, error) {
+	token, _ := jwt.Parse(jwtToken, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("parsing token error occured")
 		}

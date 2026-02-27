@@ -158,7 +158,7 @@ func SetupLogger() {
 }
 
 // Helper functions untuk logging yang lebih mudah digunakan
-func Info(msg string, fields ...map[string]interface{}) {
+func Info(msg string, fields ...map[string]any) {
 	entry := Log.WithFields(logrus.Fields{})
 	if len(fields) > 0 {
 		entry = Log.WithFields(logrus.Fields(fields[0]))
@@ -166,7 +166,7 @@ func Info(msg string, fields ...map[string]interface{}) {
 	entry.Info(msg)
 }
 
-func Error(msg string, fields ...map[string]interface{}) {
+func Error(msg string, fields ...map[string]any) {
 	entry := Log.WithFields(logrus.Fields{})
 	if len(fields) > 0 {
 		entry = Log.WithFields(logrus.Fields(fields[0]))
@@ -174,7 +174,7 @@ func Error(msg string, fields ...map[string]interface{}) {
 	entry.Error(msg)
 }
 
-func Warn(msg string, fields ...map[string]interface{}) {
+func Warn(msg string, fields ...map[string]any) {
 	entry := Log.WithFields(logrus.Fields{})
 	if len(fields) > 0 {
 		entry = Log.WithFields(logrus.Fields(fields[0]))
@@ -182,7 +182,7 @@ func Warn(msg string, fields ...map[string]interface{}) {
 	entry.Warn(msg)
 }
 
-func Debug(msg string, fields ...map[string]interface{}) {
+func Debug(msg string, fields ...map[string]any) {
 	entry := Log.WithFields(logrus.Fields{})
 	if len(fields) > 0 {
 		entry = Log.WithFields(logrus.Fields(fields[0]))
@@ -190,7 +190,7 @@ func Debug(msg string, fields ...map[string]interface{}) {
 	entry.Debug(msg)
 }
 
-func Fatal(msg string, fields ...map[string]interface{}) {
+func Fatal(msg string, fields ...map[string]any) {
 	entry := Log.WithFields(logrus.Fields{})
 	if len(fields) > 0 {
 		entry = Log.WithFields(logrus.Fields(fields[0]))
@@ -198,7 +198,7 @@ func Fatal(msg string, fields ...map[string]interface{}) {
 	entry.Fatal(msg)
 }
 
-func Trace(msg string, fields ...map[string]interface{}) {
+func Trace(msg string, fields ...map[string]any) {
 	entry := Log.WithFields(logrus.Fields{})
 	if len(fields) > 0 {
 		entry = Log.WithFields(logrus.Fields(fields[0]))

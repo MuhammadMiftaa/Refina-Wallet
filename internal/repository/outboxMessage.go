@@ -61,7 +61,7 @@ func (r *outboxRepository) MarkAsPublished(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).
 		Model(&model.OutboxMessage{}).
 		Where("id = ?", id).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"published":    true,
 			"published_at": gorm.Expr("NOW()"),
 		}).Error
