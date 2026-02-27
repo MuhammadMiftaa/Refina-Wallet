@@ -44,7 +44,7 @@ func (p *OutboxPublisher) Start(ctx context.Context) {
 			return
 		case <-ticker.C:
 			if err := p.publishPendingMessages(ctx); err != nil {
-				log.Error("Error publishing outbox messages", map[string]any{"service": "outbox", "error": err})
+				log.Error("Error publishing outbox messages", map[string]any{"service": data.OutboxService, "error": err})
 			}
 		}
 	}
@@ -62,11 +62,11 @@ func (p *OutboxPublisher) publishPendingMessages(ctx context.Context) error {
 
 	for _, msg := range messages {
 		if err := p.publishMessage(ctx, msg); err != nil {
-			log.Error("Failed to publish message", map[string]any{"service": "outbox", "document_id": msg.ID, "event_type": msg.EventType, "error": err})
+			log.Error("Failed to publish message", map[string]any{"service": data.OutboxService, "document_id": msg.ID, "event_type": msg.EventType, "error": err})
 
 			// Increment retry count
 			if err := p.outboxRepo.IncrementRetries(ctx, msg.ID); err != nil {
-				log.Error("Failed to increment retries for message", map[string]any{"service": "outbox", "document_id": msg.ID, "event_type": msg.EventType, "error": err})
+				log.Error("Failed to increment retries for message", map[string]any{"service": data.OutboxService, "document_id": msg.ID, "event_type": msg.EventType, "error": err})
 			}
 
 			continue
@@ -74,11 +74,11 @@ func (p *OutboxPublisher) publishPendingMessages(ctx context.Context) error {
 
 		// Mark as published
 		if err := p.outboxRepo.MarkAsPublished(ctx, msg.ID); err != nil {
-			log.Error("Failed to mark message as published", map[string]any{"service": "outbox", "document_id": msg.ID, "event_type": msg.EventType, "error": err})
+			log.Error("Failed to mark message as published", map[string]any{"service": data.OutboxService, "document_id": msg.ID, "event_type": msg.EventType, "error": err})
 			continue
 		}
 
-		log.Info("Successfully published message", map[string]any{"service": "outbox", "document_id": msg.ID, "event_type": msg.EventType})
+		log.Info("Successfully published message", map[string]any{"service": data.OutboxService, "document_id": msg.ID, "event_type": msg.EventType})
 	}
 
 	return nil
@@ -134,7 +134,7 @@ func (p *OutboxPublisher) StartCleanupJob(ctx context.Context) {
 			return
 		case <-ticker.C:
 			if err := p.cleanupOldMessages(ctx); err != nil {
-				log.Error("Error cleaning up old messages", map[string]any{"service": "outbox", "error": err})
+				log.Error("Error cleaning up old messages", map[string]any{"service": data.OutboxService, "error": err})
 			}
 		}
 	}
