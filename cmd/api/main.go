@@ -38,7 +38,7 @@ func init() {
 
 	if len(missing) > 0 {
 		for _, envVar := range missing {
-			logger.Log.Warnf("Missing environment variable: %s", envVar)
+			logger.Warn("Missing environment variable", map[string]any{"service": "env", "document_id": envVar})
 		}
 	}
 }
@@ -47,12 +47,12 @@ func main() {
 	// Setup Database Connection
 	startTime := time.Now()
 	dbInstance := db.GetInstance(env.Cfg.Database)
-	logger.Info("Setup Database Connection successfully", map[string]any{"duration": utils.Ms(time.Since(startTime))})
+	logger.Info("Setup Database Connection successfully", map[string]any{"service": "database", "duration": utils.Ms(time.Since(startTime))})
 
 	// Setup RabbitMQ Connection
 	startTime = time.Now()
 	queueInstance := queue.GetInstance(env.Cfg.RabbitMQ)
-	logger.Info("Setup RabbitMQ Connection successfully", map[string]any{"duration": utils.Ms(time.Since(startTime))})
+	logger.Info("Setup RabbitMQ Connection successfully", map[string]any{"service": "rabbitmq", "duration": utils.Ms(time.Since(startTime))})
 
 	// Create context for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
@@ -68,16 +68,16 @@ func main() {
 
 	// Start cleanup job (optional)
 	go outboxPublisher.StartCleanupJob(ctx)
-	logger.Info("Outbox Publisher started successfully", map[string]any{"duration": utils.Ms(time.Since(startTime))})
+	logger.Info("Outbox Publisher started successfully", map[string]any{"service": "outbox", "duration": utils.Ms(time.Since(startTime))})
 
 	// Set up the gRPC client
 	startTime = time.Now()
 	grpcManager := client.GetManager()
 	err := grpcManager.SetupGRPCClient()
 	if err != nil {
-		logger.Log.Fatalf("Failed to set up gRPC client: %v", err)
+		logger.Fatal("Failed to set up gRPC client", map[string]any{"service": "grpc_client", "error": err})
 	}
-	logger.Info("Setup gRPC client successfully", map[string]any{"duration": utils.Ms(time.Since(startTime))})
+	logger.Info("Setup gRPC client successfully", map[string]any{"service": "grpc_client", "duration": utils.Ms(time.Since(startTime))})
 
 	// Set up the HTTP server
 	startTime = time.Now()
@@ -85,43 +85,43 @@ func main() {
 	if httpServer != nil {
 		go func() {
 			if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				logger.Log.Fatalf("Failed to start HTTP server: %s\n", err)
+				logger.Fatal("Failed to start HTTP server", map[string]any{"service": "http_server", "error": err})
 			}
 		}()
-		logger.Info("Starting HTTP server successfully.", map[string]any{"port": env.Cfg.Server.HTTPPort, "duration": utils.Ms(time.Since(startTime))})
+		logger.Info("Starting HTTP server successfully.", map[string]any{"service": "http_server", "port": env.Cfg.Server.HTTPPort, "duration": utils.Ms(time.Since(startTime))})
 	}
 
 	// Set up the gRPC server
 	startTime = time.Now()
 	grpcServer, lis, err := grpcserver.SetupGRPCServer(dbInstance)
 	if err != nil {
-		logger.Log.Fatalf("Failed to set up gRPC server: %v", err)
+		logger.Fatal("Failed to set up gRPC server", map[string]any{"service": "grpc_server", "error": err})
 	}
 	if grpcServer != nil && lis != nil {
 		go func() {
 			if err := grpcServer.Serve(*lis); err != nil {
-				logger.Log.Fatalf("Failed to serve gRPC: %v", err)
+				logger.Fatal("Failed to serve gRPC", map[string]any{"service": "grpc_server", "error": err})
 			}
 		}()
-		logger.Info("Starting gRPC server successfully.", map[string]any{"port": env.Cfg.Server.GRPCPort, "duration": utils.Ms(time.Since(startTime))})
+		logger.Info("Starting gRPC server successfully.", map[string]any{"service": "grpc_server", "port": env.Cfg.Server.GRPCPort, "duration": utils.Ms(time.Since(startTime))})
 	}
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	logger.Info("shutdown signal received, stopping services...", nil)
+	logger.Info("shutdown signal received, stopping services...", map[string]any{"service": "main"})
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
 
 	startTime = time.Now()
-	shutdownErrors := make(map[string]any)
+	shutdownErrors := map[string]any{"service": "main"}
 
 	// Shutdown HTTP server
 	if httpServer != nil {
 		if err := httpServer.Shutdown(shutdownCtx); err != nil {
-			logger.Log.Errorf("Failed to shutdown HTTP server: %v", err)
+			logger.Error("Failed to shutdown HTTP server", map[string]any{"service": "http_server", "error": err})
 			shutdownErrors["http_error"] = true
 		}
 	}
@@ -134,26 +134,26 @@ func main() {
 	if grpcServer != nil {
 		grpcServer.GracefulStop()
 		if err := grpcManager.Shutdown(shutdownCtx); err != nil {
-			logger.Log.Errorf("Failed to shutdown gRPC clients: %v", err)
+			logger.Error("Failed to shutdown gRPC clients", map[string]any{"service": "grpc_client", "error": err})
 			shutdownErrors["grpc_error"] = true
 		}
 	}
 
 	// Close RabbitMQ connection
 	if err := queueInstance.Close(); err != nil {
-		logger.Log.Errorf("Failed to close RabbitMQ connection: %v", err)
+		logger.Error("Failed to close RabbitMQ connection", map[string]any{"service": "rabbitmq", "error": err})
 		shutdownErrors["rabbitmq_error"] = true
 	}
 
 	// Close database connection
 	if err := dbInstance.Close(); err != nil {
-		logger.Log.Errorf("Failed to close database connection: %v", err)
+		logger.Error("Failed to close database connection", map[string]any{"service": "database", "error": err})
 		shutdownErrors["database_error"] = true
 	}
 
 	if len(shutdownErrors) > 0 {
 		logger.Info("Servers stopped with errors", shutdownErrors)
 	} else {
-		logger.Info("Servers gracefully stopped", map[string]any{"duration": utils.Ms(time.Since(startTime))})
+		logger.Info("Servers gracefully stopped", map[string]any{"service": "main", "duration": utils.Ms(time.Since(startTime))})
 	}
 }
