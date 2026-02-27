@@ -2,9 +2,12 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 
+	"refina-wallet/config/log"
 	"refina-wallet/internal/service"
 	"refina-wallet/internal/types/dto"
+	"refina-wallet/internal/utils/data"
 
 	"github.com/gin-gonic/gin"
 )
@@ -19,13 +22,20 @@ func NewWalletHandler(walletService service.WalletsService) *walletHandler {
 
 func (wallet_handler *walletHandler) GetAllWallets(c *gin.Context) {
 	ctx := c.Request.Context()
+	requestID, _ := c.Get(data.REQUEST_ID_LOCAL_KEY)
 
 	wallets, err := wallet_handler.walletService.GetAllWallets(ctx)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"statusCode": 500,
+		log.Error("get_all_wallets_failed", map[string]any{
+			"service":    data.WalletService,
+			"request_id": requestID,
+			"error":      err.Error(),
+		})
+		statusCode, message := mapServiceError(err)
+		c.JSON(statusCode, gin.H{
+			"statusCode": statusCode,
 			"status":     false,
-			"message":    err.Error(),
+			"message":    message,
 		})
 		return
 	}
@@ -40,15 +50,23 @@ func (wallet_handler *walletHandler) GetAllWallets(c *gin.Context) {
 
 func (wallet_handler *walletHandler) GetWalletByID(c *gin.Context) {
 	ctx := c.Request.Context()
+	requestID, _ := c.Get(data.REQUEST_ID_LOCAL_KEY)
 
 	id := c.Param("id")
 
 	wallet, err := wallet_handler.walletService.GetWalletByID(ctx, id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"statusCode": 500,
+		log.Error("get_wallet_by_id_failed", map[string]any{
+			"service":    data.WalletService,
+			"request_id": requestID,
+			"wallet_id":  id,
+			"error":      err.Error(),
+		})
+		statusCode, message := mapServiceError(err)
+		c.JSON(statusCode, gin.H{
+			"statusCode": statusCode,
 			"status":     false,
-			"message":    err.Error(),
+			"message":    message,
 		})
 		return
 	}
@@ -64,13 +82,20 @@ func (wallet_handler *walletHandler) GetWalletByID(c *gin.Context) {
 func (wallet_handler *walletHandler) GetWalletsByUserID(c *gin.Context) {
 	ctx := c.Request.Context()
 	token := c.GetHeader("Authorization")
+	requestID, _ := c.Get(data.REQUEST_ID_LOCAL_KEY)
 
 	userWallets, err := wallet_handler.walletService.GetWalletsByUserID(ctx, token)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"statusCode": 400,
+		log.Error("get_wallets_by_user_id_failed", map[string]any{
+			"service":    data.WalletService,
+			"request_id": requestID,
+			"error":      err.Error(),
+		})
+		statusCode, message := mapServiceError(err)
+		c.JSON(statusCode, gin.H{
+			"statusCode": statusCode,
 			"status":     false,
-			"message":    err.Error(),
+			"message":    message,
 		})
 		return
 	}
@@ -86,13 +111,20 @@ func (wallet_handler *walletHandler) GetWalletsByUserID(c *gin.Context) {
 func (wallet_handler *walletHandler) GetWalletsByUserIDGroupByType(c *gin.Context) {
 	ctx := c.Request.Context()
 	token := c.GetHeader("Authorization")
+	requestID, _ := c.Get(data.REQUEST_ID_LOCAL_KEY)
 
 	userWallets, err := wallet_handler.walletService.GetWalletsByUserIDGroupByType(ctx, token)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"statusCode": 400,
+		log.Error("get_wallets_by_user_id_group_by_type_failed", map[string]any{
+			"service":    data.WalletService,
+			"request_id": requestID,
+			"error":      err.Error(),
+		})
+		statusCode, message := mapServiceError(err)
+		c.JSON(statusCode, gin.H{
+			"statusCode": statusCode,
 			"status":     false,
-			"message":    err.Error(),
+			"message":    message,
 		})
 		return
 	}
@@ -108,26 +140,47 @@ func (wallet_handler *walletHandler) GetWalletsByUserIDGroupByType(c *gin.Contex
 func (wallet_handler *walletHandler) CreateWallet(c *gin.Context) {
 	ctx := c.Request.Context()
 	token := c.GetHeader("Authorization")
+	requestID, _ := c.Get(data.REQUEST_ID_LOCAL_KEY)
 
 	var walletRequest dto.WalletsRequest
 	if err := c.ShouldBindJSON(&walletRequest); err != nil {
+		log.Warn("create_wallet_bad_request", map[string]any{
+			"service":    data.WalletService,
+			"request_id": requestID,
+			"error":      err.Error(),
+		})
 		c.JSON(http.StatusBadRequest, gin.H{
 			"statusCode": 400,
 			"status":     false,
-			"message":    err.Error(),
+			"message":    "invalid request body",
 		})
 		return
 	}
 
 	wallet, err := wallet_handler.walletService.CreateWallet(ctx, token, walletRequest)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"statusCode": 500,
+		log.Error("create_wallet_failed", map[string]any{
+			"service":        data.WalletService,
+			"request_id":     requestID,
+			"wallet_type_id": walletRequest.WalletTypeID,
+			"error":          err.Error(),
+		})
+		statusCode, message := mapServiceError(err)
+		c.JSON(statusCode, gin.H{
+			"statusCode": statusCode,
 			"status":     false,
-			"message":    err.Error(),
+			"message":    message,
 		})
 		return
 	}
+
+	log.Info("wallet_created", map[string]any{
+		"service":    data.WalletService,
+		"request_id": requestID,
+		"wallet_id":  wallet.ID,
+		"user_id":    wallet.UserID,
+		"type":       wallet.WalletType,
+	})
 
 	c.JSON(http.StatusCreated, gin.H{
 		"statusCode": 201,
@@ -139,25 +192,39 @@ func (wallet_handler *walletHandler) CreateWallet(c *gin.Context) {
 
 func (wallet_handler *walletHandler) UpdateWallet(c *gin.Context) {
 	ctx := c.Request.Context()
+	requestID, _ := c.Get(data.REQUEST_ID_LOCAL_KEY)
 
 	id := c.Param("id")
 
 	var walletRequest dto.WalletsRequest
 	if err := c.ShouldBindJSON(&walletRequest); err != nil {
+		log.Warn("update_wallet_bad_request", map[string]any{
+			"service":    data.WalletService,
+			"request_id": requestID,
+			"wallet_id":  id,
+			"error":      err.Error(),
+		})
 		c.JSON(http.StatusBadRequest, gin.H{
 			"statusCode": 400,
 			"status":     false,
-			"message":    err.Error(),
+			"message":    "invalid request body",
 		})
 		return
 	}
 
 	wallet, err := wallet_handler.walletService.UpdateWallet(ctx, id, walletRequest)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"statusCode": 500,
+		log.Error("update_wallet_failed", map[string]any{
+			"service":    data.WalletService,
+			"request_id": requestID,
+			"wallet_id":  id,
+			"error":      err.Error(),
+		})
+		statusCode, message := mapServiceError(err)
+		c.JSON(statusCode, gin.H{
+			"statusCode": statusCode,
 			"status":     false,
-			"message":    err.Error(),
+			"message":    message,
 		})
 		return
 	}
@@ -172,15 +239,23 @@ func (wallet_handler *walletHandler) UpdateWallet(c *gin.Context) {
 
 func (wallet_handler *walletHandler) DeleteWallet(c *gin.Context) {
 	ctx := c.Request.Context()
+	requestID, _ := c.Get(data.REQUEST_ID_LOCAL_KEY)
 
 	id := c.Param("id")
 
 	wallet, err := wallet_handler.walletService.DeleteWallet(ctx, id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"statusCode": 500,
+		log.Error("delete_wallet_failed", map[string]any{
+			"service":    data.WalletService,
+			"request_id": requestID,
+			"wallet_id":  id,
+			"error":      err.Error(),
+		})
+		statusCode, message := mapServiceError(err)
+		c.JSON(statusCode, gin.H{
+			"statusCode": statusCode,
 			"status":     false,
-			"message":    err.Error(),
+			"message":    message,
 		})
 		return
 	}
@@ -191,4 +266,21 @@ func (wallet_handler *walletHandler) DeleteWallet(c *gin.Context) {
 		"message":    "Delete wallet",
 		"data":       wallet,
 	})
+}
+
+// mapServiceError menerjemahkan error dari service ke HTTP status + pesan aman untuk client
+func mapServiceError(err error) (int, string) {
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "not found"):
+		return http.StatusNotFound, "resource not found"
+	case strings.Contains(msg, "invalid token"),
+		strings.Contains(msg, "invalid user id"),
+		strings.Contains(msg, "invalid wallet type id"):
+		return http.StatusBadRequest, "invalid request"
+	case strings.Contains(msg, "balance must be zero"):
+		return http.StatusUnprocessableEntity, "wallet balance must be zero before deletion"
+	default:
+		return http.StatusInternalServerError, "internal server error"
+	}
 }

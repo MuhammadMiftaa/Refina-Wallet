@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"refina-wallet/internal/repository"
 	"refina-wallet/internal/types/dto"
@@ -32,7 +33,7 @@ func NewWalletTypesService(txManager repository.TxManager, walletTypesRepo repos
 func (walletTypeServ *walletTypesService) GetAllWalletTypes(ctx context.Context) ([]dto.WalletTypesResponse, error) {
 	walletTypes, err := walletTypeServ.walletTypesRepo.GetAllWalletTypes(ctx, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get all wallet types: %w", err)
 	}
 
 	var walletTypesResponse []dto.WalletTypesResponse
@@ -47,7 +48,7 @@ func (walletTypeServ *walletTypesService) GetAllWalletTypes(ctx context.Context)
 func (walletTypeServ *walletTypesService) GetWalletTypeByID(ctx context.Context, id string) (dto.WalletTypesResponse, error) {
 	walletType, err := walletTypeServ.walletTypesRepo.GetWalletTypeByID(ctx, nil, id)
 	if err != nil {
-		return dto.WalletTypesResponse{}, err
+		return dto.WalletTypesResponse{}, fmt.Errorf("wallet type not found [id=%s]: %w", id, err)
 	}
 
 	walletTypeResponse := utils.ConvertToResponseType(walletType).(dto.WalletTypesResponse)
@@ -64,7 +65,7 @@ func (walletTypeServ *walletTypesService) CreateWalletType(ctx context.Context, 
 
 	walletTypeModel, err := walletTypeServ.walletTypesRepo.CreateWalletType(ctx, nil, walletTypeModel)
 	if err != nil {
-		return dto.WalletTypesResponse{}, err
+		return dto.WalletTypesResponse{}, fmt.Errorf("create wallet type: insert to db: %w", err)
 	}
 
 	walletTypeResponse := utils.ConvertToResponseType(walletTypeModel).(dto.WalletTypesResponse)
@@ -81,7 +82,7 @@ func (walletTypeServ *walletTypesService) UpdateWalletType(ctx context.Context, 
 
 	walletTypeModel, err := walletTypeServ.walletTypesRepo.UpdateWalletType(ctx, nil, walletTypeModel)
 	if err != nil {
-		return dto.WalletTypesResponse{}, err
+		return dto.WalletTypesResponse{}, fmt.Errorf("update wallet type [id=%s]: update in db: %w", id, err)
 	}
 
 	walletTypeResponse := utils.ConvertToResponseType(walletTypeModel).(dto.WalletTypesResponse)
@@ -92,12 +93,12 @@ func (walletTypeServ *walletTypesService) UpdateWalletType(ctx context.Context, 
 func (walletTypeServ *walletTypesService) DeleteWalletType(ctx context.Context, id string) (dto.WalletTypesResponse, error) {
 	walletTypeModel, err := walletTypeServ.walletTypesRepo.GetWalletTypeByID(ctx, nil, id)
 	if err != nil {
-		return dto.WalletTypesResponse{}, err
+		return dto.WalletTypesResponse{}, fmt.Errorf("wallet type not found [id=%s]: %w", id, err)
 	}
 
 	walletTypeModel, err = walletTypeServ.walletTypesRepo.DeleteWalletType(ctx, nil, walletTypeModel)
 	if err != nil {
-		return dto.WalletTypesResponse{}, err
+		return dto.WalletTypesResponse{}, fmt.Errorf("delete wallet type [id=%s]: delete from db: %w", id, err)
 	}
 
 	walletTypeResponse := utils.ConvertToResponseType(walletTypeModel).(dto.WalletTypesResponse)

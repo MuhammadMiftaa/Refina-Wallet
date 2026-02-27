@@ -3,8 +3,9 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
+	"fmt"
 
+	"refina-wallet/config/log"
 	"refina-wallet/interface/grpc/client"
 	"refina-wallet/interface/queue"
 	"refina-wallet/internal/repository"
@@ -59,7 +60,7 @@ func NewWalletService(
 func (wallet_serv *walletsService) GetAllWallets(ctx context.Context) ([]dto.WalletsResponse, error) {
 	wallets, err := wallet_serv.walletsRepository.GetAllWallets(ctx, nil)
 	if err != nil {
-		return nil, errors.New("failed to get wallets")
+		return nil, fmt.Errorf("get all wallets: %w", err)
 	}
 
 	var walletsResponse []dto.WalletsResponse
@@ -74,7 +75,7 @@ func (wallet_serv *walletsService) GetAllWallets(ctx context.Context) ([]dto.Wal
 func (wallet_serv *walletsService) GetWalletByID(ctx context.Context, id string) (dto.WalletsResponse, error) {
 	wallet, err := wallet_serv.walletsRepository.GetWalletByID(ctx, nil, id)
 	if err != nil {
-		return dto.WalletsResponse{}, errors.New("wallet not found")
+		return dto.WalletsResponse{}, fmt.Errorf("get wallet [id=%s]: %w", id, err)
 	}
 
 	walletResponse := utils.ConvertToResponseType(wallet).(dto.WalletsResponse)
@@ -85,12 +86,12 @@ func (wallet_serv *walletsService) GetWalletByID(ctx context.Context, id string)
 func (wallet_serv *walletsService) GetWalletsByUserID(ctx context.Context, token string) ([]dto.WalletsResponse, error) {
 	userData, err := utils.VerifyToken(token[7:])
 	if err != nil {
-		return nil, errors.New("invalid token")
+		return nil, fmt.Errorf("invalid token: %w", err)
 	}
 
 	wallets, err := wallet_serv.walletsRepository.GetWalletsByUserID(ctx, nil, userData.ID)
 	if err != nil {
-		return nil, errors.New("failed to get wallets")
+		return nil, fmt.Errorf("get wallets by user [id=%s]: %w", userData.ID, err)
 	}
 
 	var walletsResponse []dto.WalletsResponse
@@ -105,7 +106,7 @@ func (wallet_serv *walletsService) GetWalletsByUserID(ctx context.Context, token
 func (wallet_serv *walletsService) GetWalletsByUserIDGroupByType(ctx context.Context, token string) ([]view.ViewUserWalletsGroupByType, error) {
 	userData, err := utils.VerifyToken(token[7:])
 	if err != nil {
-		return nil, errors.New("invalid token")
+		return nil, fmt.Errorf("invalid token: %w", err)
 	}
 
 	wallets, err := wallet_serv.walletsRepository.GetWalletsByUserIDGroupByType(ctx, nil, userData.ID)
@@ -119,27 +120,27 @@ func (wallet_serv *walletsService) GetWalletsByUserIDGroupByType(ctx context.Con
 func (wallet_serv *walletsService) CreateWallet(ctx context.Context, token string, wallet dto.WalletsRequest) (dto.WalletsResponse, error) {
 	userData, err := utils.VerifyToken(token[7:])
 	if err != nil {
-		return dto.WalletsResponse{}, errors.New("invalid token")
+		return dto.WalletsResponse{}, fmt.Errorf("invalid token: %w", err)
 	}
 
 	UserID, err := utils.ParseUUID(userData.ID)
 	if err != nil {
-		return dto.WalletsResponse{}, errors.New("invalid user id")
+		return dto.WalletsResponse{}, fmt.Errorf("invalid user id: %w", err)
 	}
 
 	WalletTypeID, err := utils.ParseUUID(wallet.WalletTypeID)
 	if err != nil {
-		return dto.WalletsResponse{}, errors.New("invalid wallet type id")
+		return dto.WalletsResponse{}, fmt.Errorf("invalid wallet type id: %w", err)
 	}
 
 	walletType, err := wallet_serv.walletTypesRepository.GetWalletTypeByID(ctx, nil, wallet.WalletTypeID)
 	if err != nil {
-		return dto.WalletsResponse{}, errors.New("wallet type not found")
+		return dto.WalletsResponse{}, fmt.Errorf("wallet type not found [id=%s]: %w", wallet.WalletTypeID, err)
 	}
 
 	tx, err := wallet_serv.txManager.Begin(ctx)
 	if err != nil {
-		return dto.WalletsResponse{}, errors.New("failed to begin transaction")
+		return dto.WalletsResponse{}, fmt.Errorf("create wallet: begin transaction: %w", err)
 	}
 
 	initialDeposit := new(tpb.Transaction)
@@ -166,20 +167,26 @@ func (wallet_serv *walletsService) CreateWallet(ctx context.Context, token strin
 		WalletType:   walletType,
 	})
 	if err != nil {
-		return dto.WalletsResponse{}, err
+		return dto.WalletsResponse{}, fmt.Errorf("create wallet: insert to db: %w", err)
 	}
 
 	// GRPC call
 	initialDeposit, err = wallet_serv.transactionClient.InitialDeposit(ctx, walletID.String(), wallet.Balance)
 	if err != nil {
-		return dto.WalletsResponse{}, err
+		log.Warn("create_wallet_grpc_failed_will_rollback", map[string]any{
+			"service":   data.WalletService,
+			"wallet_id": walletID.String(),
+			"amount":    wallet.Balance,
+			"error":     err.Error(),
+		})
+		return dto.WalletsResponse{}, fmt.Errorf("create wallet: initial deposit via grpc: %w", err)
 	}
 
 	walletResponse := utils.ConvertToResponseType(newWallet).(dto.WalletsResponse)
 
 	payload, err := json.Marshal(walletResponse)
 	if err != nil {
-		return dto.WalletsResponse{}, errors.New("failed to marshal wallet response")
+		return dto.WalletsResponse{}, fmt.Errorf("create wallet: marshal wallet response: %w", err)
 	}
 
 	outboxMsg := &model.OutboxMessage{
@@ -191,12 +198,12 @@ func (wallet_serv *walletsService) CreateWallet(ctx context.Context, token strin
 	}
 
 	if err := wallet_serv.outboxRepository.Create(ctx, tx, outboxMsg); err != nil {
-		return dto.WalletsResponse{}, err
+		return dto.WalletsResponse{}, fmt.Errorf("create wallet: save outbox message: %w", err)
 	}
 
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
-		return dto.WalletsResponse{}, errors.New("failed to commit transaction")
+		return dto.WalletsResponse{}, fmt.Errorf("create wallet: commit transaction: %w", err)
 	}
 
 	return walletResponse, nil
@@ -205,7 +212,7 @@ func (wallet_serv *walletsService) CreateWallet(ctx context.Context, token strin
 func (wallet_serv *walletsService) UpdateWallet(ctx context.Context, id string, wallet dto.WalletsRequest) (dto.WalletsResponse, error) {
 	existingWallet, err := wallet_serv.walletsRepository.GetWalletByID(ctx, nil, id)
 	if err != nil {
-		return dto.WalletsResponse{}, errors.New("wallet not found")
+		return dto.WalletsResponse{}, fmt.Errorf("wallet not found [id=%s]: %w", id, err)
 	}
 
 	existingWallet.Name = wallet.Name
@@ -213,7 +220,7 @@ func (wallet_serv *walletsService) UpdateWallet(ctx context.Context, id string, 
 
 	tx, err := wallet_serv.txManager.Begin(ctx)
 	if err != nil {
-		return dto.WalletsResponse{}, errors.New("failed to begin transaction")
+		return dto.WalletsResponse{}, fmt.Errorf("update wallet: begin transaction: %w", err)
 	}
 
 	defer func() {
@@ -222,14 +229,14 @@ func (wallet_serv *walletsService) UpdateWallet(ctx context.Context, id string, 
 
 	walletUpdated, err := wallet_serv.walletsRepository.UpdateWallet(ctx, tx, existingWallet)
 	if err != nil {
-		return dto.WalletsResponse{}, err
+		return dto.WalletsResponse{}, fmt.Errorf("update wallet: update in db: %w", err)
 	}
 
 	walletResponse := utils.ConvertToResponseType(walletUpdated).(dto.WalletsResponse)
 
 	payload, err := json.Marshal(walletResponse)
 	if err != nil {
-		return dto.WalletsResponse{}, errors.New("failed to marshal wallet response")
+		return dto.WalletsResponse{}, fmt.Errorf("update wallet: marshal wallet response: %w", err)
 	}
 
 	outboxMsg := &model.OutboxMessage{
@@ -241,12 +248,12 @@ func (wallet_serv *walletsService) UpdateWallet(ctx context.Context, id string, 
 	}
 
 	if err := wallet_serv.outboxRepository.Create(ctx, tx, outboxMsg); err != nil {
-		return dto.WalletsResponse{}, err
+		return dto.WalletsResponse{}, fmt.Errorf("update wallet: save outbox message: %w", err)
 	}
 
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
-		return dto.WalletsResponse{}, errors.New("failed to commit transaction")
+		return dto.WalletsResponse{}, fmt.Errorf("update wallet: commit transaction: %w", err)
 	}
 
 	return walletResponse, nil
@@ -255,16 +262,16 @@ func (wallet_serv *walletsService) UpdateWallet(ctx context.Context, id string, 
 func (wallet_serv *walletsService) DeleteWallet(ctx context.Context, id string) (dto.WalletsResponse, error) {
 	existingWallet, err := wallet_serv.walletsRepository.GetWalletByID(ctx, nil, id)
 	if err != nil {
-		return dto.WalletsResponse{}, errors.New("wallet not found")
+		return dto.WalletsResponse{}, fmt.Errorf("wallet not found [id=%s]: %w", id, err)
 	}
 
 	if existingWallet.Balance != 0 {
-		return dto.WalletsResponse{}, errors.New("wallet balance must be zero before deletion")
+		return dto.WalletsResponse{}, fmt.Errorf("wallet balance must be zero before deletion")
 	}
 
 	tx, err := wallet_serv.txManager.Begin(ctx)
 	if err != nil {
-		return dto.WalletsResponse{}, errors.New("failed to begin transaction")
+		return dto.WalletsResponse{}, fmt.Errorf("delete wallet: begin transaction: %w", err)
 	}
 
 	defer func() {
@@ -273,14 +280,14 @@ func (wallet_serv *walletsService) DeleteWallet(ctx context.Context, id string) 
 
 	deletedWallet, err := wallet_serv.walletsRepository.DeleteWallet(ctx, tx, existingWallet)
 	if err != nil {
-		return dto.WalletsResponse{}, err
+		return dto.WalletsResponse{}, fmt.Errorf("delete wallet: delete from db: %w", err)
 	}
 
 	walletResponse := utils.ConvertToResponseType(deletedWallet).(dto.WalletsResponse)
 
 	payload, err := json.Marshal(walletResponse)
 	if err != nil {
-		return dto.WalletsResponse{}, errors.New("failed to marshal wallet response")
+		return dto.WalletsResponse{}, fmt.Errorf("delete wallet: marshal wallet response: %w", err)
 	}
 
 	outboxMsg := &model.OutboxMessage{
@@ -292,12 +299,12 @@ func (wallet_serv *walletsService) DeleteWallet(ctx context.Context, id string) 
 	}
 
 	if err := wallet_serv.outboxRepository.Create(ctx, tx, outboxMsg); err != nil {
-		return dto.WalletsResponse{}, err
+		return dto.WalletsResponse{}, fmt.Errorf("delete wallet: save outbox message: %w", err)
 	}
 
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
-		return dto.WalletsResponse{}, errors.New("failed to commit transaction")
+		return dto.WalletsResponse{}, fmt.Errorf("delete wallet: commit transaction: %w", err)
 	}
 
 	return walletResponse, nil
