@@ -25,7 +25,7 @@ func (walletTypeHandler *walletTypeHandler) GetAllWalletTypes(c *gin.Context) {
 
 	walletTypes, err := walletTypeHandler.walletTypeServ.GetAllWalletTypes(ctx)
 	if err != nil {
-		log.Error("get_all_wallet_types_failed", map[string]any{
+		log.Error(data.LogGetAllWalletTypesFailed, map[string]any{
 			"service":    data.WalletTypeService,
 			"request_id": requestID,
 			"error":      err.Error(),
@@ -55,7 +55,7 @@ func (walletTypeHandler *walletTypeHandler) GetWalletTypeByID(c *gin.Context) {
 
 	walletType, err := walletTypeHandler.walletTypeServ.GetWalletTypeByID(ctx, id)
 	if err != nil {
-		log.Error("get_wallet_type_by_id_failed", map[string]any{
+		log.Error(data.LogGetWalletTypeByIDFailed, map[string]any{
 			"service":        data.WalletTypeService,
 			"request_id":     requestID,
 			"wallet_type_id": id,
@@ -84,7 +84,7 @@ func (walletTypeHandler *walletTypeHandler) CreateWalletType(c *gin.Context) {
 
 	var walletTypeRequest dto.WalletTypesRequest
 	if err := c.ShouldBindJSON(&walletTypeRequest); err != nil {
-		log.Warn("create_wallet_type_bad_request", map[string]any{
+		log.Warn(data.LogCreateWalletTypeBadRequest, map[string]any{
 			"service":    data.WalletTypeService,
 			"request_id": requestID,
 			"error":      err.Error(),
@@ -99,7 +99,7 @@ func (walletTypeHandler *walletTypeHandler) CreateWalletType(c *gin.Context) {
 
 	walletType, err := walletTypeHandler.walletTypeServ.CreateWalletType(ctx, walletTypeRequest)
 	if err != nil {
-		log.Error("create_wallet_type_failed", map[string]any{
+		log.Error(data.LogCreateWalletTypeFailed, map[string]any{
 			"service":    data.WalletTypeService,
 			"request_id": requestID,
 			"name":       walletTypeRequest.Name,
@@ -115,7 +115,7 @@ func (walletTypeHandler *walletTypeHandler) CreateWalletType(c *gin.Context) {
 		return
 	}
 
-	log.Info("wallet_type_created", map[string]any{
+	log.Info(data.LogWalletTypeCreated, map[string]any{
 		"service":        data.WalletTypeService,
 		"request_id":     requestID,
 		"wallet_type_id": walletType.ID,
@@ -139,7 +139,7 @@ func (walletTypeHandler *walletTypeHandler) UpdateWalletType(c *gin.Context) {
 
 	var walletTypeRequest dto.WalletTypesRequest
 	if err := c.ShouldBindJSON(&walletTypeRequest); err != nil {
-		log.Warn("update_wallet_type_bad_request", map[string]any{
+		log.Warn(data.LogUpdateWalletTypeBadRequest, map[string]any{
 			"service":        data.WalletTypeService,
 			"request_id":     requestID,
 			"wallet_type_id": id,
@@ -155,7 +155,7 @@ func (walletTypeHandler *walletTypeHandler) UpdateWalletType(c *gin.Context) {
 
 	walletType, err := walletTypeHandler.walletTypeServ.UpdateWalletType(ctx, id, walletTypeRequest)
 	if err != nil {
-		log.Error("update_wallet_type_failed", map[string]any{
+		log.Error(data.LogUpdateWalletTypeFailed, map[string]any{
 			"service":        data.WalletTypeService,
 			"request_id":     requestID,
 			"wallet_type_id": id,
@@ -186,7 +186,7 @@ func (walletTypeHandler *walletTypeHandler) DeleteWalletType(c *gin.Context) {
 
 	walletType, err := walletTypeHandler.walletTypeServ.DeleteWalletType(ctx, id)
 	if err != nil {
-		log.Error("delete_wallet_type_failed", map[string]any{
+		log.Error(data.LogDeleteWalletTypeFailed, map[string]any{
 			"service":        data.WalletTypeService,
 			"request_id":     requestID,
 			"wallet_type_id": id,

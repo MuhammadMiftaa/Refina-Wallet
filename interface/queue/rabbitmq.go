@@ -69,7 +69,7 @@ func GetInstance(cfg env.RabbitMQ) RabbitMQClient {
 	once.Do(func() {
 		client, err := NewRabbitMQClient(cfg)
 		if err != nil {
-			log.Log.Fatalf("Failed to initialize RabbitMQ client: %v", err)
+			log.Fatal(data.LogRabbitmqInitFailed, map[string]any{"service": data.RabbitmqService, "error": err.Error()})
 		}
 		instance = client
 	})

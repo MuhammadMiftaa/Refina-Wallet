@@ -173,7 +173,7 @@ func (wallet_serv *walletsService) CreateWallet(ctx context.Context, token strin
 	// GRPC call
 	initialDeposit, err = wallet_serv.transactionClient.InitialDeposit(ctx, walletID.String(), wallet.Balance)
 	if err != nil {
-		log.Warn("create_wallet_grpc_failed_will_rollback", map[string]any{
+		log.Warn(data.LogCreateWalletGRPCFailedRollback, map[string]any{
 			"service":   data.WalletService,
 			"wallet_id": walletID.String(),
 			"amount":    wallet.Balance,
