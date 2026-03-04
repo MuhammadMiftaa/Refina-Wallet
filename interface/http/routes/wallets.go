@@ -3,7 +3,6 @@ package routes
 import (
 	"refina-wallet/interface/grpc/client"
 	"refina-wallet/interface/http/handler"
-	"refina-wallet/interface/http/middleware"
 	"refina-wallet/interface/queue"
 	"refina-wallet/internal/repository"
 	"refina-wallet/internal/service"
@@ -23,7 +22,6 @@ func WalletRoutes(version *gin.Engine, db *gorm.DB, queueInstance queue.RabbitMQ
 	walletHandler := handler.NewWalletHandler(walletServ)
 
 	wallets := version.Group("/wallets")
-	wallets.Use(middleware.AuthMiddleware())
 
 	wallets.GET("", walletHandler.GetAllWallets)
 	wallets.GET(":id", walletHandler.GetWalletByID)

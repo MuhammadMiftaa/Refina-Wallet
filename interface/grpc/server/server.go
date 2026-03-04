@@ -6,6 +6,7 @@ import (
 	"refina-wallet/config/db"
 	"refina-wallet/config/env"
 	"refina-wallet/interface/grpc/client"
+	"refina-wallet/interface/grpc/interceptor"
 	"refina-wallet/interface/queue"
 	"refina-wallet/internal/repository"
 	"refina-wallet/internal/service"
@@ -20,7 +21,10 @@ func SetupGRPCServer(dbInstance db.DatabaseClient, queueInstance queue.RabbitMQC
 		return nil, nil, err
 	}
 
-	s := grpc.NewServer()
+	s := grpc.NewServer(
+		grpc.UnaryInterceptor(interceptor.UnaryServerInterceptor()),
+		grpc.StreamInterceptor(interceptor.StreamServerInterceptor()),
+	)
 
 	txManager := repository.NewTxManager(dbInstance.GetDB())
 	walletsRepo := repository.NewWalletRepository(dbInstance.GetDB())

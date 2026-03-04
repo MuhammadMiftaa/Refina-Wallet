@@ -209,6 +209,7 @@ func (s *walletServer) UpdateWallet(ctx context.Context, req *wpb.UpdateWalletRe
 		Name:         req.GetName(),
 		Number:       req.GetNumber(),
 		WalletTypeID: req.GetWalletTypeId(),
+		Balance:      req.GetBalance(),
 	}
 
 	result, err := s.walletService.UpdateWallet(ctx, walletID, walletReq)

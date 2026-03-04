@@ -10,8 +10,8 @@ import (
 )
 
 type TransactionClient interface {
-	InitialDeposit(ctx context.Context, walletID string, amount float64) (*tpb.Transaction, error)
-	CancelInitialDeposit(ctx context.Context, transactionID string) (*tpb.Transaction, error)
+	InitialDeposit(ctx context.Context, walletID string, amount float64) (*tpb.TransactionDetail, error)
+	CancelInitialDeposit(ctx context.Context, transactionID string) (*tpb.TransactionDetail, error)
 }
 
 type transactionClientImpl struct {
@@ -24,11 +24,11 @@ func NewTransactionClient(grpcClient tpb.TransactionServiceClient) TransactionCl
 	}
 }
 
-func (t *transactionClientImpl) InitialDeposit(ctx context.Context, walletID string, amount float64) (*tpb.Transaction, error) {
+func (t *transactionClientImpl) InitialDeposit(ctx context.Context, walletID string, amount float64) (*tpb.TransactionDetail, error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	return t.client.CreateTransaction(ctx, &tpb.NewTransaction{
+	return t.client.CreateTransaction(ctx, &tpb.CreateTransactionRequest{
 		WalletId:        walletID,
 		Amount:          amount,
 		CategoryId:      data.INITIAL_DEPOSIT_CATEGORY_ID,
@@ -37,7 +37,7 @@ func (t *transactionClientImpl) InitialDeposit(ctx context.Context, walletID str
 	})
 }
 
-func (t *transactionClientImpl) CancelInitialDeposit(ctx context.Context, transactionID string) (*tpb.Transaction, error) {
+func (t *transactionClientImpl) CancelInitialDeposit(ctx context.Context, transactionID string) (*tpb.TransactionDetail, error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
