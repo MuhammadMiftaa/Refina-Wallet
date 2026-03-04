@@ -26,6 +26,7 @@ type WalletsService interface {
 	GetWalletsByUserID(ctx context.Context, token string) ([]dto.WalletsResponse, error)
 	GetWalletsByUserIDGroupByType(ctx context.Context, token string) ([]view.ViewUserWalletsGroupByType, error)
 	CreateWallet(ctx context.Context, token string, wallet dto.WalletsRequest) (dto.WalletsResponse, error)
+	CreateWalletGRPC(ctx context.Context, wallet dto.WalletsRequest) (dto.WalletsResponse, error)
 	UpdateWallet(ctx context.Context, id string, wallet dto.WalletsRequest) (dto.WalletsResponse, error)
 	DeleteWallet(ctx context.Context, id string) (dto.WalletsResponse, error)
 }
@@ -202,6 +203,92 @@ func (wallet_serv *walletsService) CreateWallet(ctx context.Context, token strin
 	}
 
 	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		return dto.WalletsResponse{}, fmt.Errorf("create wallet: commit transaction: %w", err)
+	}
+
+	return walletResponse, nil
+}
+
+// CreateWalletGRPC is used by the gRPC server — user_id is already validated by the BFF
+func (wallet_serv *walletsService) CreateWalletGRPC(ctx context.Context, wallet dto.WalletsRequest) (dto.WalletsResponse, error) {
+	UserID, err := utils.ParseUUID(wallet.UserID)
+	if err != nil {
+		return dto.WalletsResponse{}, fmt.Errorf("invalid user id: %w", err)
+	}
+
+	WalletTypeID, err := utils.ParseUUID(wallet.WalletTypeID)
+	if err != nil {
+		return dto.WalletsResponse{}, fmt.Errorf("invalid wallet type id: %w", err)
+	}
+
+	walletType, err := wallet_serv.walletTypesRepository.GetWalletTypeByID(ctx, nil, wallet.WalletTypeID)
+	if err != nil {
+		return dto.WalletsResponse{}, fmt.Errorf("wallet type not found [id=%s]: %w", wallet.WalletTypeID, err)
+	}
+
+	tx, err := wallet_serv.txManager.Begin(ctx)
+	if err != nil {
+		return dto.WalletsResponse{}, fmt.Errorf("create wallet: begin transaction: %w", err)
+	}
+
+	initialDeposit := new(tpb.Transaction)
+
+	defer func() {
+		tx.Rollback()
+		if err != nil && initialDeposit != nil && initialDeposit.GetId() != "" {
+			wallet_serv.transactionClient.CancelInitialDeposit(ctx, initialDeposit.GetId())
+		}
+	}()
+
+	walletID := uuid.New()
+	newWallet, err := wallet_serv.walletsRepository.CreateWallet(ctx, tx, model.Wallets{
+		Base: model.Base{
+			ID: walletID,
+		},
+		UserID:       UserID,
+		WalletTypeID: WalletTypeID,
+		Name:         wallet.Name,
+		Number:       wallet.Number,
+		Balance:      wallet.Balance,
+		WalletType:   walletType,
+	})
+	if err != nil {
+		return dto.WalletsResponse{}, fmt.Errorf("create wallet: insert to db: %w", err)
+	}
+
+	if wallet.Balance > 0 {
+		initialDeposit, err = wallet_serv.transactionClient.InitialDeposit(ctx, walletID.String(), wallet.Balance)
+		if err != nil {
+			log.Warn(data.LogCreateWalletGRPCFailedRollback, map[string]any{
+				"service":   data.WalletService,
+				"wallet_id": walletID.String(),
+				"amount":    wallet.Balance,
+				"error":     err.Error(),
+			})
+			return dto.WalletsResponse{}, fmt.Errorf("create wallet: initial deposit via grpc: %w", err)
+		}
+	}
+
+	walletResponse := utils.ConvertToResponseType(newWallet).(dto.WalletsResponse)
+
+	payload, err := json.Marshal(walletResponse)
+	if err != nil {
+		return dto.WalletsResponse{}, fmt.Errorf("create wallet: marshal wallet response: %w", err)
+	}
+
+	outboxMsg := &model.OutboxMessage{
+		AggregateID: walletResponse.ID,
+		EventType:   data.OUTBOX_EVENT_WALLET_CREATED,
+		Payload:     payload,
+		Published:   false,
+		MaxRetries:  data.OUTBOX_PUBLISH_MAX_RETRIES,
+	}
+
+	if err := wallet_serv.outboxRepository.Create(ctx, tx, outboxMsg); err != nil {
+		return dto.WalletsResponse{}, fmt.Errorf("create wallet: save outbox message: %w", err)
+	}
+
 	if err := tx.Commit(); err != nil {
 		return dto.WalletsResponse{}, fmt.Errorf("create wallet: commit transaction: %w", err)
 	}

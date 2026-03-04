@@ -7,7 +7,8 @@ import (
 
 	"refina-wallet/config/log"
 	"refina-wallet/internal/repository"
-	"refina-wallet/internal/utils"
+	"refina-wallet/internal/service"
+	"refina-wallet/internal/types/dto"
 	"refina-wallet/internal/utils/data"
 
 	wpb "github.com/MuhammadMiftaa/Refina-Protobuf/wallet"
@@ -15,14 +16,49 @@ import (
 
 type walletServer struct {
 	wpb.UnimplementedWalletServiceServer
-	walletsRepository repository.WalletsRepository
+	walletService      service.WalletsService
+	walletTypesService service.WalletTypesService
+	walletsRepository  repository.WalletsRepository
 }
 
-func (s *walletServer) GetWallets(req *wpb.GetWalletOptions, stream wpb.WalletService_GetUserWalletsServer) error {
+// ── Helper: convert model wallet to proto Wallet ──
+
+func walletToProto(w dto.WalletsResponse) *wpb.Wallet {
+	return &wpb.Wallet{
+		Id:             w.ID,
+		UserId:         w.UserID,
+		Name:           w.Name,
+		Number:         w.Number,
+		Balance:        w.Balance,
+		WalletTypeId:   w.WalletTypeID,
+		WalletType:     w.WalletType,
+		WalletTypeName: w.WalletTypeName,
+	}
+}
+
+func walletToProtoFull(w dto.WalletsResponse, txnCount int32, createdAt, updatedAt string) *wpb.Wallet {
+	return &wpb.Wallet{
+		Id:               w.ID,
+		UserId:           w.UserID,
+		Name:             w.Name,
+		Number:           w.Number,
+		Balance:          w.Balance,
+		WalletTypeId:     w.WalletTypeID,
+		WalletType:       w.WalletType,
+		WalletTypeName:   w.WalletTypeName,
+		TransactionCount: txnCount,
+		CreatedAt:        createdAt,
+		UpdatedAt:        updatedAt,
+	}
+}
+
+// ── GetWallets (stream) — admin: all wallets ──
+
+func (s *walletServer) GetWallets(req *wpb.GetWalletOptions, stream wpb.WalletService_GetWalletsServer) error {
 	timeout, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
 
-	wallets, err := s.walletsRepository.GetAllWallets(timeout, nil)
+	wallets, err := s.walletService.GetAllWallets(timeout)
 	if err != nil {
 		log.Error(data.LogGetAllWalletsFailed, map[string]any{
 			"service": data.GRPCServerService,
@@ -32,48 +68,37 @@ func (s *walletServer) GetWallets(req *wpb.GetWalletOptions, stream wpb.WalletSe
 	}
 
 	for _, wallet := range wallets {
-		if err := stream.Send(&wpb.Wallet{
-			Id:             wallet.ID.String(),
-			UserId:         wallet.UserID.String(),
-			Name:           wallet.Name,
-			Number:         wallet.Number,
-			Balance:        wallet.Balance,
-			WalletTypeId:   wallet.WalletTypeID.String(),
-			WalletType:     string(wallet.WalletType.Type),
-			WalletTypeName: wallet.WalletType.Name,
-			CreatedAt:      wallet.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:      wallet.UpdatedAt.Format(time.RFC3339),
-		}); err != nil {
+		if err := stream.Send(walletToProto(wallet)); err != nil {
 			log.Error(data.LogGetAllWalletsStreamFailed, map[string]any{
 				"service":   data.GRPCServerService,
-				"wallet_id": wallet.ID.String(),
+				"wallet_id": wallet.ID,
 				"error":     err.Error(),
 			})
-			return fmt.Errorf("stream send wallet [id=%s]: %w", wallet.ID.String(), err)
+			return fmt.Errorf("stream send wallet [id=%s]: %w", wallet.ID, err)
 		}
 	}
 
 	return nil
 }
 
-func (s *walletServer) GetUserWallets(req *wpb.UserID, stream wpb.WalletService_GetUserWalletsServer) error {
-	timeout, cancel := context.WithTimeout(context.Background(), time.Second*30)
-	defer cancel()
+// ── GetUserWallets (unary) — user's wallets with full detail ──
 
+func (s *walletServer) GetUserWallets(ctx context.Context, req *wpb.UserID) (*wpb.GetUserWalletsResponse, error) {
 	userID := req.GetId()
 
-	wallets, err := s.walletsRepository.GetWalletsByUserID(timeout, nil, userID)
+	wallets, err := s.walletsRepository.GetWalletsByUserID(ctx, nil, userID)
 	if err != nil {
 		log.Error(data.LogGetUserWalletsFailed, map[string]any{
 			"service": data.GRPCServerService,
 			"user_id": userID,
 			"error":   err.Error(),
 		})
-		return fmt.Errorf("get wallets by user [id=%s]: %w", userID, err)
+		return nil, fmt.Errorf("get wallets by user [id=%s]: %w", userID, err)
 	}
 
+	var protoWallets []*wpb.Wallet
 	for _, wallet := range wallets {
-		if err := stream.Send(&wpb.Wallet{
+		pw := &wpb.Wallet{
 			Id:             wallet.ID.String(),
 			UserId:         wallet.UserID.String(),
 			Name:           wallet.Name,
@@ -84,19 +109,28 @@ func (s *walletServer) GetUserWallets(req *wpb.UserID, stream wpb.WalletService_
 			WalletTypeName: wallet.WalletType.Name,
 			CreatedAt:      wallet.CreatedAt.Format(time.RFC3339),
 			UpdatedAt:      wallet.UpdatedAt.Format(time.RFC3339),
-		}); err != nil {
-			log.Error(data.LogGetUserWalletsStreamFailed, map[string]any{
-				"service":   data.GRPCServerService,
-				"user_id":   userID,
-				"wallet_id": wallet.ID.String(),
-				"error":     err.Error(),
-			})
-			return fmt.Errorf("stream send wallet [id=%s]: %w", wallet.ID.String(), err)
+			WalletTypeDetail: &wpb.WalletTypeDetail{
+				Id:          wallet.WalletTypeID.String(),
+				Name:        wallet.WalletType.Name,
+				Type:        string(wallet.WalletType.Type),
+				Description: wallet.WalletType.Description,
+				CreatedAt:   wallet.WalletType.CreatedAt.Format(time.RFC3339),
+				UpdatedAt:   wallet.WalletType.UpdatedAt.Format(time.RFC3339),
+			},
 		}
+		protoWallets = append(protoWallets, pw)
 	}
 
-	return nil
+	log.Info(data.LogGetUserWalletsSuccess, map[string]any{
+		"service": data.GRPCServerService,
+		"user_id": userID,
+		"count":   len(protoWallets),
+	})
+
+	return &wpb.GetUserWalletsResponse{Wallets: protoWallets}, nil
 }
+
+// ── GetWalletByID ──
 
 func (s *walletServer) GetWalletByID(ctx context.Context, req *wpb.WalletID) (*wpb.Wallet, error) {
 	walletID := req.GetId()
@@ -112,47 +146,72 @@ func (s *walletServer) GetWalletByID(ctx context.Context, req *wpb.WalletID) (*w
 	}
 
 	return &wpb.Wallet{
-		Id:           wallet.ID.String(),
-		UserId:       wallet.UserID.String(),
-		Name:         wallet.Name,
-		Number:       wallet.Number,
-		Balance:      wallet.Balance,
-		WalletTypeId: wallet.WalletTypeID.String(),
-		CreatedAt:    wallet.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:    wallet.UpdatedAt.Format(time.RFC3339),
+		Id:             wallet.ID.String(),
+		UserId:         wallet.UserID.String(),
+		Name:           wallet.Name,
+		Number:         wallet.Number,
+		Balance:        wallet.Balance,
+		WalletTypeId:   wallet.WalletTypeID.String(),
+		WalletType:     string(wallet.WalletType.Type),
+		WalletTypeName: wallet.WalletType.Name,
+		CreatedAt:      wallet.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:      wallet.UpdatedAt.Format(time.RFC3339),
+		WalletTypeDetail: &wpb.WalletTypeDetail{
+			Id:          wallet.WalletTypeID.String(),
+			Name:        wallet.WalletType.Name,
+			Type:        string(wallet.WalletType.Type),
+			Description: wallet.WalletType.Description,
+			CreatedAt:   wallet.WalletType.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:   wallet.WalletType.UpdatedAt.Format(time.RFC3339),
+		},
 	}, nil
 }
 
-func (s *walletServer) UpdateWallet(ctx context.Context, req *wpb.Wallet) (*wpb.Wallet, error) {
+// ── CreateWallet ──
+
+func (s *walletServer) CreateWallet(ctx context.Context, req *wpb.CreateWalletRequest) (*wpb.Wallet, error) {
+	userID := req.GetUserId()
+
+	walletReq := dto.WalletsRequest{
+		UserID:       userID,
+		WalletTypeID: req.GetWalletTypeId(),
+		Name:         req.GetName(),
+		Number:       req.GetNumber(),
+		Balance:      req.GetBalance(),
+	}
+
+	// The service handles tx management, outbox, and initial deposit via gRPC
+	result, err := s.walletService.CreateWalletGRPC(ctx, walletReq)
+	if err != nil {
+		log.Error(data.LogCreateWalletFailed, map[string]any{
+			"service": data.GRPCServerService,
+			"user_id": userID,
+			"error":   err.Error(),
+		})
+		return nil, fmt.Errorf("create wallet for user [id=%s]: %w", userID, err)
+	}
+
+	log.Info(data.LogWalletCreated, map[string]any{
+		"service":   data.GRPCServerService,
+		"wallet_id": result.ID,
+		"user_id":   userID,
+	})
+
+	return walletToProto(result), nil
+}
+
+// ── UpdateWallet ──
+
+func (s *walletServer) UpdateWallet(ctx context.Context, req *wpb.UpdateWalletRequest) (*wpb.Wallet, error) {
 	walletID := req.GetId()
 
-	wallet, err := s.walletsRepository.GetWalletByID(ctx, nil, walletID)
-	if err != nil {
-		log.Error(data.LogUpdateWalletNotFound, map[string]any{
-			"service":   data.GRPCServerService,
-			"wallet_id": walletID,
-			"error":     err.Error(),
-		})
-		return nil, fmt.Errorf("wallet not found [id=%s]: %w", walletID, err)
+	walletReq := dto.WalletsRequest{
+		Name:         req.GetName(),
+		Number:       req.GetNumber(),
+		WalletTypeID: req.GetWalletTypeId(),
 	}
 
-	wallet.Name = req.GetName()
-	wallet.Number = req.GetNumber()
-	wallet.Balance = req.GetBalance()
-
-	walletTypeID, err := utils.ParseUUID(req.GetWalletTypeId())
-	if err != nil {
-		log.Error(data.LogUpdateWalletInvalidTypeID, map[string]any{
-			"service":        data.GRPCServerService,
-			"wallet_id":      walletID,
-			"wallet_type_id": req.GetWalletTypeId(),
-			"error":          err.Error(),
-		})
-		return nil, fmt.Errorf("invalid wallet type id [id=%s]: %w", req.GetWalletTypeId(), err)
-	}
-	wallet.WalletTypeID = walletTypeID
-
-	updatedWallet, err := s.walletsRepository.UpdateWallet(ctx, nil, wallet)
+	result, err := s.walletService.UpdateWallet(ctx, walletID, walletReq)
 	if err != nil {
 		log.Error(data.LogUpdateWalletFailed, map[string]any{
 			"service":   data.GRPCServerService,
@@ -164,17 +223,95 @@ func (s *walletServer) UpdateWallet(ctx context.Context, req *wpb.Wallet) (*wpb.
 
 	log.Info(data.LogWalletUpdated, map[string]any{
 		"service":   data.GRPCServerService,
-		"wallet_id": updatedWallet.ID.String(),
+		"wallet_id": result.ID,
 	})
 
-	return &wpb.Wallet{
-		Id:           updatedWallet.ID.String(),
-		UserId:       updatedWallet.UserID.String(),
-		Name:         updatedWallet.Name,
-		Number:       updatedWallet.Number,
-		Balance:      updatedWallet.Balance,
-		WalletTypeId: updatedWallet.WalletTypeID.String(),
-		CreatedAt:    updatedWallet.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:    updatedWallet.UpdatedAt.Format(time.RFC3339),
+	return walletToProto(result), nil
+}
+
+// ── DeleteWallet ──
+
+func (s *walletServer) DeleteWallet(ctx context.Context, req *wpb.WalletID) (*wpb.Wallet, error) {
+	walletID := req.GetId()
+
+	result, err := s.walletService.DeleteWallet(ctx, walletID)
+	if err != nil {
+		log.Error(data.LogDeleteWalletFailed, map[string]any{
+			"service":   data.GRPCServerService,
+			"wallet_id": walletID,
+			"error":     err.Error(),
+		})
+		return nil, fmt.Errorf("delete wallet [id=%s]: %w", walletID, err)
+	}
+
+	log.Info(data.LogWalletDeleted, map[string]any{
+		"service":   data.GRPCServerService,
+		"wallet_id": result.ID,
+	})
+
+	return walletToProto(result), nil
+}
+
+// ── GetWalletTypes ──
+
+func (s *walletServer) GetWalletTypes(ctx context.Context, req *wpb.Empty) (*wpb.GetWalletTypesResponse, error) {
+	walletTypes, err := s.walletTypesService.GetAllWalletTypes(ctx)
+	if err != nil {
+		log.Error(data.LogGetAllWalletTypesFailed, map[string]any{
+			"service": data.GRPCServerService,
+			"error":   err.Error(),
+		})
+		return nil, fmt.Errorf("get wallet types: %w", err)
+	}
+
+	var protoTypes []*wpb.WalletTypeDetail
+	for _, wt := range walletTypes {
+		protoTypes = append(protoTypes, &wpb.WalletTypeDetail{
+			Id:          wt.ID,
+			Name:        wt.Name,
+			Type:        string(wt.Type),
+			Description: wt.Description,
+		})
+	}
+
+	log.Info(data.LogGetAllWalletTypesSuccess, map[string]any{
+		"service": data.GRPCServerService,
+		"count":   len(protoTypes),
+	})
+
+	return &wpb.GetWalletTypesResponse{WalletTypes: protoTypes}, nil
+}
+
+// ── GetWalletSummary ──
+
+func (s *walletServer) GetWalletSummary(ctx context.Context, req *wpb.UserID) (*wpb.WalletSummary, error) {
+	userID := req.GetId()
+
+	wallets, err := s.walletsRepository.GetWalletsByUserID(ctx, nil, userID)
+	if err != nil {
+		log.Error(data.LogGetWalletSummaryFailed, map[string]any{
+			"service": data.GRPCServerService,
+			"user_id": userID,
+			"error":   err.Error(),
+		})
+		return nil, fmt.Errorf("get wallet summary for user [id=%s]: %w", userID, err)
+	}
+
+	var totalBalance float64
+	var totalTransactions int32
+	for _, w := range wallets {
+		totalBalance += w.Balance
+	}
+
+	log.Info(data.LogGetWalletSummarySuccess, map[string]any{
+		"service":      data.GRPCServerService,
+		"user_id":      userID,
+		"wallet_count": len(wallets),
+	})
+
+	return &wpb.WalletSummary{
+		TotalWallets:      int32(len(wallets)),
+		TotalBalance:      totalBalance,
+		TotalTransactions: totalTransactions,
 	}, nil
 }
