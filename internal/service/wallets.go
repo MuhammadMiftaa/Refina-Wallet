@@ -304,11 +304,7 @@ func (wallet_serv *walletsService) UpdateWallet(ctx context.Context, id string, 
 
 	existingWallet.Name = wallet.Name
 	existingWallet.Number = wallet.Number
-
-	// Update balance if explicitly provided (used by transaction-service for balance adjustments)
-	if wallet.Balance != 0 {
-		existingWallet.Balance = wallet.Balance
-	}
+	existingWallet.Balance = wallet.Balance
 
 	tx, err := wallet_serv.txManager.Begin(ctx)
 	if err != nil {

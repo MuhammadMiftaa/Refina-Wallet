@@ -34,6 +34,7 @@ func (t *transactionClientImpl) InitialDeposit(ctx context.Context, walletID str
 		CategoryId:      data.INITIAL_DEPOSIT_CATEGORY_ID,
 		TransactionDate: time.Now().Format(time.RFC3339),
 		Description:     data.INITIAL_DEPOSIT_DESC,
+		IsWalletNotCreated: true,
 	})
 }
 
