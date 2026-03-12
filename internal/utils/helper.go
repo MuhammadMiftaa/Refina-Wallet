@@ -13,14 +13,17 @@ func ConvertToResponseType(data any) any {
 	switch v := data.(type) {
 	case model.Wallets:
 		return dto.WalletsResponse{
-			ID:             v.ID.String(),
-			UserID:         v.UserID.String(),
-			WalletTypeID:   v.WalletTypeID.String(),
-			WalletType:     string(v.WalletType.Type),
-			WalletTypeName: v.WalletType.Name,
-			Name:           v.Name,
-			Number:         v.Number,
-			Balance:        v.Balance,
+			ID:                    v.ID.String(),
+			UserID:                v.UserID.String(),
+			WalletTypeID:          v.WalletTypeID.String(),
+			WalletType:            string(v.WalletType.Type),
+			WalletTypeName:        v.WalletType.Name,
+			WalletTypeDescription: v.WalletType.Description,
+			Name:                  v.Name,
+			Number:                v.Number,
+			Balance:               v.Balance,
+			CreatedAt:             v.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:             v.UpdatedAt.Format(time.RFC3339),
 		}
 	case model.WalletTypes:
 		return dto.WalletTypesResponse{

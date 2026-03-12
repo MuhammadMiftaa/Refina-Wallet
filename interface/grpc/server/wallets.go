@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"refina-wallet/config/log"
-	"refina-wallet/internal/repository"
 	"refina-wallet/internal/service"
 	"refina-wallet/internal/types/dto"
 	"refina-wallet/internal/utils/data"
@@ -18,7 +17,6 @@ type walletServer struct {
 	wpb.UnimplementedWalletServiceServer
 	walletService      service.WalletsService
 	walletTypesService service.WalletTypesService
-	walletsRepository  repository.WalletsRepository
 }
 
 // ── Helper: convert model wallet to proto Wallet ──
@@ -86,7 +84,7 @@ func (s *walletServer) GetWallets(req *wpb.GetWalletOptions, stream wpb.WalletSe
 func (s *walletServer) GetUserWallets(ctx context.Context, req *wpb.UserID) (*wpb.GetUserWalletsResponse, error) {
 	userID := req.GetId()
 
-	wallets, err := s.walletsRepository.GetWalletsByUserID(ctx, nil, userID)
+	wallets, err := s.walletService.GetWalletsByUserID(ctx, userID)
 	if err != nil {
 		log.Error(data.LogGetUserWalletsFailed, map[string]any{
 			"service": data.GRPCServerService,
@@ -99,23 +97,21 @@ func (s *walletServer) GetUserWallets(ctx context.Context, req *wpb.UserID) (*wp
 	var protoWallets []*wpb.Wallet
 	for _, wallet := range wallets {
 		pw := &wpb.Wallet{
-			Id:             wallet.ID.String(),
-			UserId:         wallet.UserID.String(),
+			Id:             wallet.ID,
+			UserId:         wallet.UserID,
 			Name:           wallet.Name,
 			Number:         wallet.Number,
 			Balance:        wallet.Balance,
-			WalletTypeId:   wallet.WalletTypeID.String(),
-			WalletType:     string(wallet.WalletType.Type),
-			WalletTypeName: wallet.WalletType.Name,
-			CreatedAt:      wallet.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:      wallet.UpdatedAt.Format(time.RFC3339),
+			WalletTypeId:   wallet.WalletTypeID,
+			WalletType:     wallet.WalletType,
+			WalletTypeName: wallet.WalletTypeName,
+			CreatedAt:      wallet.CreatedAt,
+			UpdatedAt:      wallet.UpdatedAt,
 			WalletTypeDetail: &wpb.WalletTypeDetail{
-				Id:          wallet.WalletTypeID.String(),
-				Name:        wallet.WalletType.Name,
-				Type:        string(wallet.WalletType.Type),
-				Description: wallet.WalletType.Description,
-				CreatedAt:   wallet.WalletType.CreatedAt.Format(time.RFC3339),
-				UpdatedAt:   wallet.WalletType.UpdatedAt.Format(time.RFC3339),
+				Id:          wallet.WalletTypeID,
+				Name:        wallet.WalletTypeName,
+				Type:        wallet.WalletType,
+				Description: wallet.WalletTypeDescription,
 			},
 		}
 		protoWallets = append(protoWallets, pw)
@@ -135,7 +131,7 @@ func (s *walletServer) GetUserWallets(ctx context.Context, req *wpb.UserID) (*wp
 func (s *walletServer) GetWalletByID(ctx context.Context, req *wpb.WalletID) (*wpb.Wallet, error) {
 	walletID := req.GetId()
 
-	wallet, err := s.walletsRepository.GetWalletByID(ctx, nil, walletID)
+	wallet, err := s.walletService.GetWalletByID(ctx, walletID)
 	if err != nil {
 		log.Error(data.LogGetWalletByIDFailed, map[string]any{
 			"service":   data.GRPCServerService,
@@ -146,23 +142,21 @@ func (s *walletServer) GetWalletByID(ctx context.Context, req *wpb.WalletID) (*w
 	}
 
 	return &wpb.Wallet{
-		Id:             wallet.ID.String(),
-		UserId:         wallet.UserID.String(),
+		Id:             wallet.ID,
+		UserId:         wallet.UserID,
 		Name:           wallet.Name,
 		Number:         wallet.Number,
 		Balance:        wallet.Balance,
-		WalletTypeId:   wallet.WalletTypeID.String(),
-		WalletType:     string(wallet.WalletType.Type),
-		WalletTypeName: wallet.WalletType.Name,
-		CreatedAt:      wallet.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:      wallet.UpdatedAt.Format(time.RFC3339),
+		WalletTypeId:   wallet.WalletTypeID,
+		WalletType:     wallet.WalletType,
+		WalletTypeName: wallet.WalletTypeName,
+		CreatedAt:      wallet.CreatedAt,
+		UpdatedAt:      wallet.UpdatedAt,
 		WalletTypeDetail: &wpb.WalletTypeDetail{
-			Id:          wallet.WalletTypeID.String(),
-			Name:        wallet.WalletType.Name,
-			Type:        string(wallet.WalletType.Type),
-			Description: wallet.WalletType.Description,
-			CreatedAt:   wallet.WalletType.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:   wallet.WalletType.UpdatedAt.Format(time.RFC3339),
+			Id:          wallet.WalletTypeID,
+			Name:        wallet.WalletTypeName,
+			Type:        wallet.WalletType,
+			Description: wallet.WalletTypeDescription,
 		},
 	}, nil
 }
@@ -288,7 +282,7 @@ func (s *walletServer) GetWalletTypes(ctx context.Context, req *wpb.Empty) (*wpb
 func (s *walletServer) GetWalletSummary(ctx context.Context, req *wpb.UserID) (*wpb.WalletSummary, error) {
 	userID := req.GetId()
 
-	wallets, err := s.walletsRepository.GetWalletsByUserID(ctx, nil, userID)
+	wallets, err := s.walletService.GetWalletsByUserID(ctx, userID)
 	if err != nil {
 		log.Error(data.LogGetWalletSummaryFailed, map[string]any{
 			"service": data.GRPCServerService,

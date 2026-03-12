@@ -290,6 +290,10 @@ func (wallet_serv *walletsService) UpdateWallet(ctx context.Context, id string, 
 	existingWallet.Name = wallet.Name
 	existingWallet.Number = wallet.Number
 	existingWallet.Balance = wallet.Balance
+	existingWallet.WalletTypeID, err = utils.ParseUUID(wallet.WalletTypeID)
+	if err != nil {
+		return dto.WalletsResponse{}, fmt.Errorf("invalid wallet type id: %w", err)
+	}
 
 	tx, err := wallet_serv.txManager.Begin(ctx)
 	if err != nil {

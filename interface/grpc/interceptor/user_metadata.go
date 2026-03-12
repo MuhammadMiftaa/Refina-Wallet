@@ -3,6 +3,8 @@ package interceptor
 import (
 	"context"
 
+	"refina-wallet/config/log"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )

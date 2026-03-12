@@ -45,7 +45,6 @@ func SetupGRPCServer(dbInstance db.DatabaseClient, queueInstance queue.RabbitMQC
 	walletServer := &walletServer{
 		walletService:      walletService,
 		walletTypesService: walletTypesService,
-		walletsRepository:  walletsRepo,
 	}
 	wpb.RegisterWalletServiceServer(s, walletServer)
 
